@@ -1,0 +1,37 @@
+{
+  "name": "svoya-polyanka",
+  "version": "1.2.0",
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "test:ui": "node tests/smoke.mjs && node tests/features.mjs && node tests/revision.mjs && node tests/menu-image.mjs && node tests/sync.mjs",
+    "format": "prettier --write app components lib",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx tests/unit.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "description": "Тихий личный уголок: дневник, кухонька и полка",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "lucide-react": "^1.61.0",
+    "next": "^16.4.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
