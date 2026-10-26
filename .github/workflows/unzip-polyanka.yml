@@ -1,7 +1,7 @@
 name: Распаковать полянку
 
-on:
-  workflow_dispatch:
+"on":
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -21,7 +21,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
-      - name: Распаковать ZIP в корень
+      - name: Проверить и распаковать ZIP
         shell: bash
         run: |
           python3 - <<'PY'
@@ -33,13 +33,16 @@ jobs:
           archive = root / "polyanka-v3.zip"
 
           if not archive.is_file() or archive.is_symlink():
-              raise SystemExit("Сначала загрузи polyanka-v3.zip в корень этой ветки.")
+              raise SystemExit(
+                  "Загрузи polyanka-v3.zip в корень выбранной ветки."
+              )
 
           files = []
           total = 0
 
           with zipfile.ZipFile(archive) as z:
               entries = z.infolist()
+
               if len(entries) > 5000:
                   raise SystemExit("Слишком много файлов в ZIP.")
 
@@ -59,11 +62,68 @@ jobs:
                       raise SystemExit("Небезопасный путь в ZIP.")
 
                   if stat.S_ISLNK(item.external_attr >> 16):
-                      raise SystemExit("Символические ссылки не разрешены.")
+                      raise SystemExit(
+                          "Символические ссылки в ZIP запрещены."
+                      )
 
                   if path.parts[0] != "polyanka" or len(path.parts) < 2:
-                      raise SystemExit("В ZIP ожидается папка polyanka/.")
+                      raise SystemExit(
+                          "Ожидается ZIP с внешней папкой polyanka/."
+                      )
 
                   relative = Path(*path.parts[1:])
 
-                  if any(p in {".git", ".github", "node_modules", ".next"} for 
+                  protected = {".git", ".github", "node_modules", ".next"}
+                  if any(part in protected for part in relative.parts):
+                      raise SystemExit("Защищённый путь в ZIP.")
+
+                  if any(
+                      part.startswith(".env") and part != ".env.example"
+                      for part in relative.parts
+                  ):
+                      raise SystemExit("Файлы с секретами запрещены.")
+
+                  if relative.as_posix() == archive.name:
+                      raise SystemExit("Нельзя перезаписать сам ZIP.")
+
+                  target = root / relative
+
+                  if target.is_symlink() or any(
+                      parent.is_symlink() for parent in target.parents
+                  ):
+                      raise SystemExit("Путь содержит символическую ссылку.")
+
+                  if not target.resolve().is_relative_to(root):
+                      raise SystemExit("Выход за пределы репозитория.")
+
+                  total += item.file_size
+                  if total > 50_000_000:
+                      raise SystemExit("Распакованный ZIP превышает 50 МБ.")
+
+                  files.append((relative, z.read(item)))
+
+          names = {path.as_posix() for path, _ in files}
+          required = {
+              "package.json",
+              "app/layout.tsx",
+              "app/polyanka.tsx",
+          }
+
+          if len(names) != len(files):
+              raise SystemExit("Повторяющиеся пути в ZIP.")
+
+          if not required.issubset(names):
+              raise SystemExit("Не найдены исходники полянки.")
+
+          for relative, content in files:
+              target = root / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(content)
+
+          manifest = root / ".git" / "polyanka-import-files"
+          manifest.write_bytes(
+              b"".join(
+                  str(path).encode("utf-8") + b"\0"
+                  for path, _ in files
+              )
+          )
