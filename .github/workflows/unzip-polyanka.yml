@@ -1,1 +1,69 @@
+name: Распаковать полянку
 
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: unpack-polyanka-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Скачать выбранную ветку
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Распаковать ZIP в корень
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import stat
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          root = Path.cwd().resolve()
+          archive = root / "polyanka-v3.zip"
+
+          if not archive.is_file() or archive.is_symlink():
+              raise SystemExit("Сначала загрузи polyanka-v3.zip в корень этой ветки.")
+
+          files = []
+          total = 0
+
+          with zipfile.ZipFile(archive) as z:
+              entries = z.infolist()
+              if len(entries) > 5000:
+                  raise SystemExit("Слишком много файлов в ZIP.")
+
+              for item in entries:
+                  if item.is_dir():
+                      continue
+
+                  path = PurePosixPath(item.filename)
+
+                  if (
+                      path.is_absolute()
+                      or ".." in path.parts
+                      or "\\" in item.filename
+                      or not path.parts
+                      or any(ord(c) < 32 for c in item.filename)
+                  ):
+                      raise SystemExit("Небезопасный путь в ZIP.")
+
+                  if stat.S_ISLNK(item.external_attr >> 16):
+                      raise SystemExit("Символические ссылки не разрешены.")
+
+                  if path.parts[0] != "polyanka" or len(path.parts) < 2:
+                      raise SystemExit("В ZIP ожидается папка polyanka/.")
+
+                  relative = Path(*path.parts[1:])
+
+                  if any(p in {".git", ".github", "node_modules", ".next"} for 
