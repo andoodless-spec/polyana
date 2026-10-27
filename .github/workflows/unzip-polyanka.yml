@@ -1,104 +1,58 @@
-name: Распаковать обновление «полянки» и проверить main
+name: Распаковать обновление Полянки
 
 on:
-  workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths:
-      - polyanka-update.zip
-      - .github/workflows/unpack-polyanka-update.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: unpack-polyanka-update-main
-  cancel-in-progress: false
-
 jobs:
   unpack:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Скачать ветку main
-        uses: actions/checkout@v6
-        with:
-          ref: main
 
-      - name: Безопасно распаковать и проверить файлы в удалённой main
+    steps:
+      - name: Получить репозиторий
+        uses: actions/checkout@v4
+
+      - name: Распаковать и применить обновление
         shell: bash
         run: |
-          python3 - <<'PY'
-          import hashlib, json, os, re, stat, subprocess, zipfile
-          from pathlib import Path, PurePosixPath
+          set -euo pipefail
 
-          def git(*args):
-              return subprocess.check_output(['git', *args])
+          ZIP_FILE="polyanka-1.3.5.zip"
 
-          root = Path.cwd().resolve()
-          archive = root / 'polyanka-update.zip'
-          if not archive.is_file() or archive.is_symlink():
-              raise SystemExit('Загрузите polyanka-update.zip в корень main.')
-          files, total = {}, 0
-          with zipfile.ZipFile(archive) as z:
-              entries = z.infolist()
-              if len(entries) > 5000:
-                  raise SystemExit('В ZIP слишком много записей.')
-              for item in entries:
-                  if item.is_dir():
-                      continue
-                  name, path = item.filename, PurePosixPath(item.filename)
-                  if path.is_absolute() or '..' in path.parts or '\\' in name or not path.parts or any(ord(c) < 32 for c in name):
-                      raise SystemExit('Небезопасный путь в ZIP: ' + name)
-                  if stat.S_ISLNK(item.external_attr >> 16):
-                      raise SystemExit('Символическая ссылка в ZIP запрещена.')
-                  if len(path.parts) < 2 or path.parts[0] != 'polyanka':
-                      raise SystemExit('Ожидается внешняя папка polyanka/ в ZIP.')
-                  relpath = Path(*path.parts[1:])
-                  blocked = {'.git', '.github', 'node_modules', '.next', '.vercel', 'dist', 'build', 'coverage', 'test-artifacts', '__pycache__'}
-                  if any(part in blocked for part in relpath.parts):
-                      raise SystemExit('Запрещённая папка в ZIP: ' + name)
-                  if relpath.name == '.env' or (relpath.name.startswith('.env.') and relpath.name != '.env.example'):
-                      raise SystemExit('Файлы с секретами .env запрещены.')
-                  total += item.file_size
-                  if item.file_size > 25_000_000 or total > 100_000_000:
-                      raise SystemExit('Содержимое ZIP превышает безопасный размер.')
-                  rel = relpath.as_posix()
-                  target = root / relpath
-                  if rel in files or rel == archive.name:
-                      raise SystemExit('Повторяющийся или запрещённый путь: ' + rel)
-                  if target.is_symlink() or any(p.is_symlink() for p in target.parents) or not target.resolve().is_relative_to(root):
-                      raise SystemExit('Небезопасный целевой путь: ' + rel)
-                  if target.exists() and not target.is_file():
-                      raise SystemExit('По пути уже находится папка: ' + rel)
-                  files[rel] = z.read(item)
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "::error::Не найден $ZIP_FILE в корне репозитория"
+            exit 1
+          fi
 
-          required = {'package.json', 'package-lock.json', 'app/page.tsx', 'app/layout.tsx', 'app/polyanka.tsx', 'app/globals.css', 'lib/recipe-prompt.ts', 'AI-MENU-PROMPT.txt', 'public/fonts/pixelify.ttf', 'tests/unit.ts'}
-          if not required.issubset(files):
-              raise SystemExit('Не хватает обязательных файлов в ZIP: ' + ', '.join(sorted(required - files.keys())))
-          package = json.loads(files['package.json'])
-          lock = json.loads(files['package-lock.json'])
-          version = package.get('version')
-          lock_version = lock.get('packages', {}).get('', {}).get('version')
-          if not isinstance(version, str) or not re.fullmatch(r'\d+\.\d+\.\d+', version):
-              raise SystemExit('В package.json нет корректной версии сайта в формате X.Y.Z.')
-          if lock.get('version') != version or lock_version != version:
-              raise SystemExit('Версии package.json и package-lock.json не совпадают.')
-          for name, content in files.items():
-              target = root / name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_bytes(content)
+          mkdir -p /tmp/polyanka-update
+          unzip -q "$ZIP_FILE" -d /tmp/polyanka-update
 
-          git('config', 'user.name', 'github-actions[bot]')
-          git('config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com')
-          git('--literal-pathspecs', 'add', '--force', '--', *sorted(files))
-          if git('diff', '--cached', '--name-only').strip():
-              git('commit', '-m', 'Обновить полянку до версии ' + version)
-          git('push', 'origin', 'HEAD:refs/heads/main')
-          git('fetch', '--no-tags', 'origin', 'refs/heads/main')
-          commit = git('rev-parse', 'FETCH_HEAD').decode().strip()
-          for name, content in files.items():
-              if hashlib.sha256(git('show', 'FETCH_HEAD:' + name)).digest() != hashlib.sha256(content).digest():
-                  raise SystemExit('Проверка файла в main не пройдена: ' + name)
-          print('УСПЕХ: все', len(files), 'файлов проверены в main; коммит', commit)
-          PY
+          SOURCE_DIR="/tmp/polyanka-update/polyanka"
+
+          if [ ! -d "$SOURCE_DIR" ]; then
+            echo "::error::В архиве не найдена папка polyanka/"
+            exit 1
+          fi
+
+          rsync -a --exclude='.github/' "$SOURCE_DIR/" ./
+          rm -f "$ZIP_FILE"
+
+      - name: Сохранить изменения в GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Изменений для коммита нет."
+            exit 0
+          fi
+
+          git commit -m "Обновление Полянки до версии 1.3.5"
+          git push
