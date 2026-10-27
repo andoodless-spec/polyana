@@ -69,6 +69,7 @@ import {
   nextBirthday,
 } from "@/lib/data";
 import { Meadow, Sprout, ForestDetail } from "./art";
+import { ArtPicker, CuratedArt, faviconData } from "@/components/curated-art";
 import { Field, Empty, Leaves } from "@/components/ui";
 import { Dialog } from "@/components/editors";
 import {
@@ -87,7 +88,6 @@ import { createMenuPng } from "@/lib/menu-export";
 import Journal from "@/components/journal";
 import { SearchPanel } from "@/components/search-panel";
 import RestaurantMenu from "@/components/restaurant-menu";
-import { RECIPE_PROMPT } from "@/lib/recipe-prompt";
 const icons: any = {
   home: Home,
   book: BookOpen,
@@ -130,8 +130,8 @@ export default function Polyanka() {
     [quickTask, setQuickTask] = useState(""),
     [quickShop, setQuickShop] = useState(""),
     [randomId, setRandomId] = useState(""),
-    [portion, setPortion] = useState(1),
-    [dishDetail, setDishDetail] = useState("recipe"),
+    [dishFlips, setDishFlips] = useState<Record<string, boolean>>({}),
+    [randomRecipeOpen, setRandomRecipeOpen] = useState(false),
     [user, setUser] = useState<any>(null),
     [configured, setConfigured] = useState(false),
     [sync, setSync] = useState("Локальный деморежим"),
@@ -403,6 +403,23 @@ export default function Polyanka() {
       ? "reduce"
       : "normal";
   }, [night, data.settings.theme, data.settings.reduceMotion]);
+  useEffect(() => {
+    const href = faviconData(data.settings.faviconArt || "leaf");
+    let link = document.querySelector<HTMLLinkElement>(
+      'link[data-polyanka-favicon="true"]',
+    );
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      link.dataset.polyankaFavicon = "true";
+      document.head.appendChild(link);
+    }
+    link.type = "image/svg+xml";
+    link.href = href;
+    return () => {
+      link?.remove();
+    };
+  }, [data.settings.faviconArt]);
   function go(p: string) {
     setPage(p);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -592,7 +609,7 @@ export default function Polyanka() {
       kind === "shopping"
         ? shopping.map(
             (s: any) =>
-              `${s.done ? "✓  " : s.have ? "Есть дома · " : "□  "}${s.name}${s.qty !== "" ? " — " + fmt(s.qty) + " " + s.unit : ""}`,
+              `${s.done ? "✓  " : s.have ? "Есть дома · " : "□  "}${s.name}${s.unit === "п.в." ? " — п.в." : s.qty !== "" ? " — " + fmt(s.qty) + " " + s.unit : ""}`,
           )
         : data.menu
             .filter(
@@ -609,7 +626,7 @@ export default function Polyanka() {
                   : "Калорийность не указана",
                 ...(d?.ingredients || []).map(
                   (i: any) =>
-                    `${i.name}${i.qty !== "" ? " — " + fmt((Number(i.qty) * Number(m.portions)) / Number(d.portions || 1)) + " " + i.unit : ""}`,
+                    `${i.name}${i.unit === "п.в." ? " — п.в." : i.qty !== "" ? " — " + fmt((Number(i.qty) * Number(m.portions)) / Number(d.portions || 1)) + " " + i.unit : ""}`,
                 ),
                 "",
               ];
@@ -720,10 +737,14 @@ export default function Polyanka() {
     }
   }
   function openDish(d: any) {
-    setDraft(structuredClone(d));
-    setPortion(Number(d.portions) || 1);
-    setDishDetail("recipe");
-    setModal({ type: "dishView" });
+    if (!d?.id) return;
+    go("kitchen");
+    setKitchen("dishes");
+    setFoodQuery("");
+    setFoodCategory("Все");
+    setOnlyLoved(false);
+    setAllIngredients(false);
+    setDishFlips({ [d.id]: true });
   }
   const importedDates = [
     ...new Set(
@@ -818,6 +839,7 @@ export default function Polyanka() {
         ? randomPool.filter((d: any) => d.id !== randomId)
         : randomPool;
     setRandomId(options[Math.floor(Math.random() * options.length)].id);
+    setRandomRecipeOpen(false);
   }
   function prepareMeal(m: any, dish: any) {
     if (!dish) return;
@@ -1201,7 +1223,11 @@ export default function Polyanka() {
                     <Plus size={17} /> Записать мысль
                   </button>
                 </div>
-                <Meadow />
+                <CuratedArt
+                  slot="headerArt"
+                  value={data.settings.headerArt || "meadow"}
+                  className="meadow curated-meadow"
+                />
                 <span className="hero-caption">
                   маленький мир, в котором ты дома
                 </span>
@@ -1418,76 +1444,125 @@ export default function Polyanka() {
                         }
                       >
                         {filteredDishes.map((d: any) => (
-                          <article className="card dish-card" key={d.id}>
-                            {data.settings.dishView === "image" && (
-                              <button
-                                className="dish-image"
-                                onClick={() => openDish(d)}
-                              >
-                                {d.image ? (
-                                  <img src={d.image} alt={d.title} />
-                                ) : (
-                                  <>
-                                    <CookingPot size={45} />
-                                    <span>Твоё блюдо</span>
-                                  </>
+                          <article
+                            className={
+                              "card dish-card recipe-collection-card " +
+                              (dishFlips[d.id]
+                                ? "recipe-collection-flipped"
+                                : "")
+                            }
+                            key={d.id}
+                          >
+                            <div className="collection-flip-inner">
+                              <div className="collection-recipe-front">
+                                {data.settings.dishView === "image" && (
+                                  <button
+                                    className="dish-image"
+                                    onClick={() =>
+                                      setDishFlips((old) => ({
+                                        ...old,
+                                        [d.id]: !old[d.id],
+                                      }))
+                                    }
+                                  >
+                                    {d.image ? (
+                                      <img src={d.image} alt={d.title} />
+                                    ) : (
+                                      <>
+                                        <CookingPot size={45} />
+                                        <span>Твоё блюдо</span>
+                                      </>
+                                    )}
+                                  </button>
                                 )}
-                              </button>
-                            )}
-                            <div className="dish-card-body">
-                              <span className="eyebrow">{d.category}</span>
-                              <button
-                                className="dish-title"
-                                onClick={() => openDish(d)}
-                              >
-                                {d.title}
-                              </button>
-                              <p>
-                                {d.kcal !== "" && d.kcal != null
-                                  ? (d.kcalEstimated ? "≈" : "") +
-                                    d.kcal +
-                                    " ккал / порц."
-                                  : "Калорийность не указана"}{" "}
-                                · {d.portions} порц.
-                              </p>
-                              <div className="dish-actions">
-                                <button
-                                  className={
-                                    "icon-btn " + (d.liked ? "liked" : "")
-                                  }
-                                  aria-label={
-                                    d.liked
-                                      ? "Убрать из любимых"
-                                      : "Понравилось"
-                                  }
-                                  onClick={() =>
-                                    mutate((s) => {
-                                      const x = s.dishes.find(
-                                        (x: any) => x.id === d.id,
-                                      );
-                                      x.liked = !x.liked;
-                                    })
-                                  }
-                                >
-                                  <Heart
-                                    size={18}
-                                    fill={d.liked ? "currentColor" : "none"}
-                                  />
-                                </button>
-                                <button
-                                  className="text-link"
-                                  onClick={() => addToMenu(d)}
-                                >
-                                  В меню <Plus size={14} />
-                                </button>
-                                <button
-                                  className="icon-btn"
-                                  title="Редактировать"
-                                  onClick={() => editDish(d)}
-                                >
-                                  <Pencil size={14} />
-                                </button>
+                                <div className="dish-card-body">
+                                  <span className="eyebrow">{d.category}</span>
+                                  <button
+                                    className="dish-title"
+                                    onClick={() =>
+                                      setDishFlips((old) => ({
+                                        ...old,
+                                        [d.id]: !old[d.id],
+                                      }))
+                                    }
+                                  >
+                                    {d.title}
+                                  </button>
+                                  <p>
+                                    {d.kcal !== "" && d.kcal != null
+                                      ? (d.kcalEstimated ? "≈" : "") +
+                                        d.kcal +
+                                        " ккал / порц."
+                                      : "Калорийность не указана"}{" "}
+                                    · {d.portions} порц.
+                                  </p>
+                                  <div className="dish-actions">
+                                    <button
+                                      className={
+                                        "icon-btn " + (d.liked ? "liked" : "")
+                                      }
+                                      aria-label={
+                                        d.liked
+                                          ? "Убрать из любимых"
+                                          : "Понравилось"
+                                      }
+                                      onClick={() =>
+                                        mutate((s) => {
+                                          const x = s.dishes.find(
+                                            (x: any) => x.id === d.id,
+                                          );
+                                          x.liked = !x.liked;
+                                        })
+                                      }
+                                    >
+                                      <Heart
+                                        size={18}
+                                        fill={d.liked ? "currentColor" : "none"}
+                                      />
+                                    </button>
+                                    <button
+                                      className="text-link"
+                                      onClick={() => addToMenu(d)}
+                                    >
+                                      В меню <Plus size={14} />
+                                    </button>
+                                    <button
+                                      className="icon-btn"
+                                      title="Редактировать"
+                                      onClick={() => editDish(d)}
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
+                            </div>
+                            <div
+                              className="collection-recipe-back"
+                              aria-hidden={!dishFlips[d.id]}
+                            >
+                              <span className="eyebrow">
+                                СПОСОБ ПРИГОТОВЛЕНИЯ
+                              </span>
+                              <h3>{d.title}</h3>
+                              <p className="preserve">
+                                {d.recipe?.trim() ||
+                                  "Способ приготовления пока не добавлен."}
+                              </p>
+                              {d.notes && (
+                                <p className="preserve muted">{d.notes}</p>
+                              )}
+                              <button
+                                className="text-link"
+                                onClick={() =>
+                                  setDishFlips((old) => ({
+                                    ...old,
+                                    [d.id]: false,
+                                  }))
+                                }
+                              >
+                                Вернуться к блюду
+                              </button>
                             </div>
                           </article>
                         ))}
@@ -1509,7 +1584,9 @@ export default function Polyanka() {
                           {data.settings.dishView === "image" && (
                             <button
                               className="random-image"
-                              onClick={() => openDish(randomDish)}
+                              onClick={() =>
+                                setRandomRecipeOpen((open) => !open)
+                              }
                             >
                               {randomDish.image ? (
                                 <img
@@ -1530,10 +1607,26 @@ export default function Polyanka() {
                           </p>
                           <button
                             className="text-link"
-                            onClick={() => openDish(randomDish)}
+                            onClick={() => setRandomRecipeOpen((open) => !open)}
                           >
-                            Посмотреть рецепт <ArrowUpRight size={15} />
+                            {randomRecipeOpen
+                              ? "Скрыть приготовление"
+                              : "Как приготовить"}{" "}
+                            <ArrowUpRight size={15} />
                           </button>
+                          {randomRecipeOpen && (
+                            <div className="random-recipe-inline">
+                              <p className="preserve">
+                                {randomDish.recipe ||
+                                  "Способ приготовления пока не добавлен."}
+                              </p>
+                              {randomDish.notes && (
+                                <p className="preserve muted">
+                                  {randomDish.notes}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <>
@@ -1622,6 +1715,7 @@ export default function Polyanka() {
                   {kitchen === "shopping" ? (
                     <ShoppingSheet
                       shoppingProps={shoppingProps}
+                      artwork={data.settings.shoppingArt || "fern"}
                       from={mealDay}
                       to={menuTo < mealDay ? mealDay : menuTo}
                       onClear={() => {
@@ -1641,14 +1735,10 @@ export default function Polyanka() {
                   ) : (
                     <RestaurantMenu
                       data={data}
+                      artwork={data.settings.menuArt || "flowers"}
                       from={mealDay}
                       to={menuTo < mealDay ? mealDay : menuTo}
                       onOpen={openDish}
-                      onMenuImageChange={(image: string) =>
-                        mutate((d) => {
-                          d.settings.menuImage = image;
-                        })
-                      }
                       onEdit={(m: any) => open("menu", m)}
                       onDelete={(m: any) => remove("menu", m.id)}
                       onPrepare={prepareMeal}
@@ -1699,14 +1789,6 @@ export default function Polyanka() {
                 <section className="card import-card">
                   <div className="card-heading">
                     <h2>Из текста — в твою коллекцию</h2>
-                    <button
-                      className="help"
-                      aria-label="Подсказка и промпт для разбора"
-                      title="Подсказка и промпт"
-                      onClick={() => setModal({ type: "importHelp" })}
-                    >
-                      <Leaf size={17} />
-                    </button>
                   </div>
                   <p className="muted">
                     Готовое меню от твоего ИИ или свои рецепты. Проверим блюда,
@@ -1728,17 +1810,16 @@ export default function Polyanka() {
                   />
                   <div className="row spread">
                     <button
-                      className="text-link"
-                      onClick={() => setModal({ type: "importHelp" })}
-                    >
-                      <Copy size={15} /> Промпт и образец
-                    </button>
-                    <button
                       className="btn primary"
                       disabled={!importText.trim()}
                       onClick={() => {
-                        setParsedRecipes(parseRecipes(importText));
+                        const parsed = parseRecipes(importText);
+                        setParsedRecipes(parsed);
                         setDraft((d: any) => ({ ...d, importReviewed: false }));
+                        if (!parsed.length)
+                          tell(
+                            "Не нашла блоков «Название: …». Проверь вставленный текст и попробуй ещё раз.",
+                          );
                       }}
                     >
                       Разобрать текст <ArrowRight size={15} />
@@ -1849,7 +1930,11 @@ export default function Polyanka() {
                                 d.ingredients
                                   .map(
                                     (x: any) =>
-                                      x.name + " | " + x.qty + " | " + x.unit,
+                                      x.name +
+                                      " | " +
+                                      (x.unit === "п.в." ? "п.в." : x.qty) +
+                                      " | " +
+                                      (x.unit === "п.в." ? "" : x.unit),
                                   )
                                   .join("\n")
                               }
@@ -2277,6 +2362,35 @@ export default function Polyanka() {
                   </button>
                 ))}
               </div>
+              <h3>Иконка сайта</h3>
+              <p className="muted">Значок вкладки и ярлыка сайта в браузере.</p>
+              <ArtPicker
+                slot="faviconArt"
+                value={data.settings.faviconArt || "leaf"}
+                onChange={(id) => mutate((d) => (d.settings.faviconArt = id))}
+              />
+              <h3>Иллюстрация шапки</h3>
+              <ArtPicker
+                slot="headerArt"
+                value={data.settings.headerArt || "meadow"}
+                onChange={(id) => mutate((d) => (d.settings.headerArt = id))}
+              />
+              <h3>Иллюстрация меню</h3>
+              <ArtPicker
+                slot="menuArt"
+                value={data.settings.menuArt || "flowers"}
+                onChange={(id) => mutate((d) => (d.settings.menuArt = id))}
+              />
+              <h3>Иллюстрация списка продуктов</h3>
+              <ArtPicker
+                slot="shoppingArt"
+                value={data.settings.shoppingArt || "fern"}
+                onChange={(id) => mutate((d) => (d.settings.shoppingArt = id))}
+              />
+              <p className="footnote">
+                Можно выбрать только одну из подготовленных иллюстраций для
+                каждого места. Загрузка собственных картинок недоступна.
+              </p>
               <h3>Блюда в кухоньке</h3>
               <div className="segmented">
                 <button
@@ -2611,7 +2725,6 @@ export default function Polyanka() {
           title={
             (
               {
-                importHelp: "Промпт и разбор рецептов",
                 shelfHelp: "Своя полка — как всё устроено",
                 help: "Листик-подсказка",
                 dish: "Твой рецепт",
@@ -2629,41 +2742,6 @@ export default function Polyanka() {
           onClose={() => setModal(null)}
         >
           {modal.type === "shelfHelp" && <ShelfInformation />}
-          {modal.type === "importHelp" && (
-            <div className="import-help">
-              <Leaf size={27} />
-              <h3>Разобрать без догадок</h3>
-              <p className="muted">
-                Скопируй промпт во внешний ИИ, укажи сроки, категории, порции и
-                калорийность. Обсуждай замены, затем попроси полный итог «для
-                сайта». Вставь его сюда: распознаем рецепты и даты меню.
-                Подсказка с промптом всегда остаётся под этим листиком.
-              </p>
-              <textarea
-                readOnly
-                aria-label="Промпт для ИИ"
-                value={RECIPE_PROMPT}
-                rows={15}
-              />
-              <button
-                className="btn soft"
-                onClick={() =>
-                  navigator.clipboard
-                    ?.writeText(RECIPE_PROMPT)
-                    .then(() => tell("Промпт скопирован"))
-                    .catch(() =>
-                      tell("Выдели текст промпта и скопируй вручную"),
-                    )
-                }
-              >
-                <Copy size={15} /> Скопировать промпт
-              </button>
-              <p className="footnote">
-                ИИ на сайте не используется. Этот текст можно скопировать в
-                выбранный тобой внешний сервис. Не передавай ему личные данные.
-              </p>
-            </div>
-          )}
           {modal.type === "help" && (
             <div className="help-content">
               <Leaf size={36} />
@@ -2832,114 +2910,6 @@ export default function Polyanka() {
                 )}
               </div>
             </form>
-          )}
-          {modal.type === "dishView" && (
-            <div className="dish-detail">
-              {draft.image && (
-                <img
-                  className="detail-image"
-                  src={draft.image}
-                  alt={draft.title}
-                />
-              )}
-              <span className="eyebrow">{draft.category}</span>
-              <h2>{draft.title}</h2>
-              <div className="segmented">
-                <button
-                  className={dishDetail === "recipe" ? "active" : ""}
-                  onClick={() => setDishDetail("recipe")}
-                >
-                  Рецепт
-                </button>
-                <button
-                  className={dishDetail === "ingredients" ? "active" : ""}
-                  onClick={() => setDishDetail("ingredients")}
-                >
-                  Состав и порции
-                </button>
-              </div>
-              {dishDetail === "recipe" ? (
-                <p className="preserve recipe-text">
-                  {(draft.recipe || "Способ приготовления пока не добавлен.") +
-                    (draft.notes ? "\n\nПримечания:\n" + draft.notes : "")}
-                </p>
-              ) : (
-                <>
-                  <Field label="Сколько порций приготовить">
-                    <input
-                      type="number"
-                      min="1"
-                      max="1000"
-                      value={portion}
-                      onChange={(e) =>
-                        setPortion(Math.max(1, Number(e.target.value)))
-                      }
-                    />
-                  </Field>
-                  <div className="ingredient-list">
-                    {draft.ingredients.map((i: any, n: number) => (
-                      <div key={n}>
-                        <span>{i.name}</span>
-                        <strong>
-                          {i.qty !== ""
-                            ? fmt((i.qty * portion) / draft.portions) +
-                              " " +
-                              i.unit
-                            : "По вкусу / не указано"}
-                        </strong>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="calorie-note">
-                    {draft.kcal !== "" && draft.kcal != null ? (
-                      <>
-                        <Leaf size={16} /> {draft.kcal} ккал на порцию ·{" "}
-                        {fmt(draft.kcal * portion)} ккал всего
-                        <br />
-                        <small>
-                          Значение из твоей записи, а не автоматическая оценка.
-                        </small>
-                      </>
-                    ) : (
-                      "Калорийность не указана в рецепте."
-                    )}
-                  </p>
-                </>
-              )}
-              <div className="row wrap">
-                <button
-                  className="btn primary"
-                  onClick={() => addToMenu({ ...draft, portions: portion })}
-                >
-                  <Plus size={15} /> В меню
-                </button>
-                <button className="btn soft" onClick={() => editDish(draft)}>
-                  <Pencil size={15} /> Редактировать
-                </button>
-              </div>
-              <div className="row spread detail-nav">
-                <button
-                  className="text-link"
-                  onClick={() => {
-                    const a = data.dishes,
-                      i = a.findIndex((x: any) => x.id === draft.id);
-                    if (a.length) openDish(a[(i - 1 + a.length) % a.length]);
-                  }}
-                >
-                  <ArrowLeft size={15} /> Предыдущее
-                </button>
-                <button
-                  className="text-link"
-                  onClick={() => {
-                    const a = data.dishes,
-                      i = a.findIndex((x: any) => x.id === draft.id);
-                    if (a.length) openDish(a[(i + 1) % a.length]);
-                  }}
-                >
-                  Следующее <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
           )}
           {modal.type === "menu" && (
             <form

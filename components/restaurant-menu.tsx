@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import {
   ArrowUp,
   ArrowDown,
@@ -19,18 +20,16 @@ export default function RestaurantMenu({
   onDelete,
   onMove,
   onPrepare,
-  onMenuImageChange,
+  artwork,
 }: any) {
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
   const items = data.menu.filter((m: any) => m.date >= from && m.date <= to),
     dates = [...new Set(items.map((m: any) => m.date))].sort() as string[];
   return (
     <section className="restaurant-menu">
       <div className="restaurant-frame">
         <header className="restaurant-heading">
-          <MenuIllustration
-            value={data.settings.menuImage}
-            onChange={onMenuImageChange}
-          />
+          <MenuIllustration value={artwork} />
           <span className="eyebrow">МАЛЕНЬКАЯ ДОМАШНЯЯ КУХНЯ</span>
           <h2>Меню полянки</h2>
           <p>Простое, любимое, приготовленное с заботой.</p>
@@ -62,7 +61,9 @@ export default function RestaurantMenu({
                 return (
                   <article
                     className={
-                      "restaurant-dish category-" +
+                      "restaurant-dish " +
+                      (flipped[m.id] ? "recipe-flipped " : "") +
+                      "category-" +
                       (d?.category === "Суп"
                         ? "soup"
                         : d?.category === "Салат"
@@ -71,105 +72,160 @@ export default function RestaurantMenu({
                     }
                     key={m.id}
                   >
-                    <div className="restaurant-dish-top">
-                      <span className="course-number">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="grow">
-                        <span className="course-category">
-                          {d?.category || "Блюдо в корзине"}
-                        </span>
+                    <div className="restaurant-dish-flip-inner">
+                      <div
+                        className="restaurant-dish-front"
+                        aria-hidden={!!flipped[m.id]}
+                      >
+                        <div className="restaurant-dish-top">
+                          <span className="course-number">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <div className="grow">
+                            <span className="course-category">
+                              {d?.category || "Блюдо в корзине"}
+                            </span>
+                            <button
+                              className="restaurant-dish-name"
+                              onClick={() =>
+                                setFlipped((old) => ({
+                                  ...old,
+                                  [m.id]: !old[m.id],
+                                }))
+                              }
+                            >
+                              {d?.title || "Блюдо удалено"}
+                            </button>
+                          </div>
+                          <div className="course-calories">
+                            {d?.kcal !== "" && d?.kcal != null ? (
+                              <>
+                                <strong>
+                                  {d.kcalEstimated ? "≈" : ""}
+                                  {d.kcal}
+                                </strong>
+                                <small>ккал / порц.</small>
+                              </>
+                            ) : (
+                              <small>
+                                Ккал
+                                <br />
+                                не указаны
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                        <ul className="restaurant-ingredients ingredient-column">
+                          {d?.ingredients.map((ing: any, n: number) => (
+                            <li key={n}>
+                              <span>{ing.name}</span>
+                              <i aria-hidden="true" />
+                              <b>
+                                {ing.unit === "п.в."
+                                  ? "п.в."
+                                  : ing.qty !== ""
+                                    ? fmt(
+                                        (Number(ing.qty) * Number(m.portions)) /
+                                          Number(d.portions || 1),
+                                      ) +
+                                      " " +
+                                      ing.unit
+                                    : "не указано"}
+                              </b>
+                            </li>
+                          ))}
+                        </ul>
+                        <footer className="restaurant-dish-footer">
+                          <span>
+                            <Leaf size={12} /> {m.portions} порц. · граммовки на
+                            всё блюдо
+                          </span>
+                          <div className="row">
+                            <button
+                              className="icon-btn"
+                              aria-label={"Переместить выше: " + d?.title}
+                              onClick={() => onMove(m, -1)}
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              className="icon-btn"
+                              aria-label={"Переместить ниже: " + d?.title}
+                              onClick={() => onMove(m, 1)}
+                            >
+                              <ArrowDown size={14} />
+                            </button>
+                            <button
+                              className={
+                                "icon-btn " + (m.prepared ? "accent" : "")
+                              }
+                              title={
+                                m.prepared
+                                  ? "Уже приготовлено"
+                                  : "Приготовила — проверить списание запасов"
+                              }
+                              disabled={m.prepared}
+                              onClick={() => onPrepare(m, d)}
+                            >
+                              <CheckCheck size={15} />
+                            </button>
+                            <button
+                              className="icon-btn"
+                              title="Изменить день и порции"
+                              onClick={() => onEdit(m)}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className="icon-btn"
+                              title="Убрать из меню"
+                              onClick={() => onDelete(m)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </footer>
                         <button
-                          className="restaurant-dish-name"
-                          onClick={() => d && onOpen(d)}
+                          className="recipe-flip-trigger"
+                          type="button"
+                          onClick={() =>
+                            setFlipped((old) => ({
+                              ...old,
+                              [m.id]: !old[m.id],
+                            }))
+                          }
                         >
-                          {d?.title || "Блюдо удалено"}
+                          Как приготовить
                         </button>
                       </div>
-                      <div className="course-calories">
-                        {d?.kcal !== "" && d?.kcal != null ? (
-                          <>
-                            <strong>
-                              {d.kcalEstimated ? "≈" : ""}
-                              {d.kcal}
-                            </strong>
-                            <small>ккал / порц.</small>
-                          </>
-                        ) : (
-                          <small>
-                            Ккал
-                            <br />
-                            не указаны
-                          </small>
+                      <div
+                        className="restaurant-dish-back"
+                        aria-hidden={!flipped[m.id]}
+                      >
+                        <span className="course-category">
+                          СПОСОБ ПРИГОТОВЛЕНИЯ
+                        </span>
+                        <h3>{d?.title || "Рецепт"}</h3>
+                        <p className="preserve">
+                          {d?.recipe?.trim() ||
+                            "Способ приготовления пока не добавлен."}
+                        </p>
+                        {d?.notes && (
+                          <p className="preserve recipe-back-notes">
+                            {d.notes}
+                          </p>
                         )}
+                        <button
+                          className="recipe-flip-trigger"
+                          type="button"
+                          onClick={() =>
+                            setFlipped((old) => ({ ...old, [m.id]: false }))
+                          }
+                        >
+                          Вернуться к блюду
+                        </button>
                       </div>
                     </div>
-                    <ul className="restaurant-ingredients ingredient-column">
-                      {d?.ingredients.map((ing: any, n: number) => (
-                        <li key={n}>
-                          <span>{ing.name}</span>
-                          <i aria-hidden="true" />
-                          <b>
-                            {ing.qty !== ""
-                              ? fmt(
-                                  (Number(ing.qty) * Number(m.portions)) /
-                                    Number(d.portions || 1),
-                                ) +
-                                " " +
-                                ing.unit
-                              : "не указано"}
-                          </b>
-                        </li>
-                      ))}
-                    </ul>
-                    <footer className="restaurant-dish-footer">
-                      <span>
-                        <Leaf size={12} /> {m.portions} порц. · граммовки на всё
-                        блюдо
-                      </span>
-                      <div className="row">
-                        <button
-                          className="icon-btn"
-                          aria-label={"Переместить выше: " + d?.title}
-                          onClick={() => onMove(m, -1)}
-                        >
-                          <ArrowUp size={14} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          aria-label={"Переместить ниже: " + d?.title}
-                          onClick={() => onMove(m, 1)}
-                        >
-                          <ArrowDown size={14} />
-                        </button>
-                        <button
-                          className={"icon-btn " + (m.prepared ? "accent" : "")}
-                          title={
-                            m.prepared
-                              ? "Уже приготовлено"
-                              : "Приготовила — проверить списание запасов"
-                          }
-                          disabled={m.prepared}
-                          onClick={() => onPrepare(m, d)}
-                        >
-                          <CheckCheck size={15} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          title="Изменить день и порции"
-                          onClick={() => onEdit(m)}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          title="Убрать из меню"
-                          onClick={() => onDelete(m)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </footer>
                   </article>
                 );
               })}

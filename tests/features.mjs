@@ -132,18 +132,12 @@ await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
 await expect(p.locator(".sub-tabs button").first()).toHaveText(
   "Разобрать текст",
 );
-await p.getByRole("button", { name: "Подсказка и промпт для разбора" }).click();
-await expect(p.getByLabel("Промпт для ИИ")).toContainText(
-  "ПОЛНУЮ последнюю согласованную подборку",
-);
-await p
-  .getByRole("dialog")
-  .getByRole("button", { name: "Закрыть", exact: true })
-  .click();
+await expect(p.getByLabel("Текст рецептов")).toBeVisible();
+await expect(p.getByLabel("Промпт для ИИ")).toHaveCount(0);
 await p
   .getByLabel("Текст рецептов")
   .fill(
-    "Название: Первый суп\nКатегория: Суп\nПорции: 2\nКкал на порцию: 120\nИнгредиенты:\nМорковь | 200 | г\nПриготовление:\nВарить.\nПримечания:\nБез соли.\nНазвание: Второй салат\nКатегория: Салат\nПорции: 1\nИнгредиенты:\nСыр | 50 | г\nПриготовление:\nСмешать.",
+    "Название: Первый суп\nКатегория: Суп\nПорции: 2\nКкал на порцию: 120\nИнгредиенты:\nМорковь | 200 | г\nПриготовление:\nВарить.\nПримечания:\nБез соли.\nНазвание: Второй салат\nКатегория: Салат\nПорции: 1\nИнгредиенты:\nСыр | 50 | г\nПаприка | п.в. |\nПриготовление:\nСмешать.",
   );
 await p
   .getByRole("button", { name: "Разобрать текст", exact: true })

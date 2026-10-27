@@ -129,7 +129,13 @@ export function Shopping({
                 </button>
                 <span className="grow">
                   {s.name}
-                  <small>{s.qty !== "" ? fmt(s.qty) + " " + s.unit : ""}</small>
+                  <small>
+                    {s.unit === "п.в."
+                      ? "п.в."
+                      : s.qty !== ""
+                        ? fmt(s.qty) + " " + s.unit
+                        : ""}
+                  </small>
                 </span>
                 {s.done ? (
                   <span className="tiny muted">Куплено</span>

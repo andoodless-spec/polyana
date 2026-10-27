@@ -1,12 +1,13 @@
 "use client";
 import { Shopping } from "./widgets";
-import { ForestDetail } from "@/app/art";
+import { CuratedArt } from "@/components/curated-art";
 import { Leaf } from "lucide-react";
 export default function ShoppingSheet({
   shoppingProps,
   from,
   to,
   onClear,
+  artwork = "fern",
 }: any) {
   const items = shoppingProps.shopping,
     remaining = items.filter((s: any) => !s.done && !s.have).length;
@@ -19,7 +20,11 @@ export default function ShoppingSheet({
     <section className="restaurant-menu shopping-sheet">
       <div className="restaurant-frame">
         <header className="restaurant-heading">
-          <ForestDetail kind="fern" />
+          <CuratedArt
+            slot="shoppingArt"
+            value={artwork}
+            className="curated-small-art"
+          />
           <span className="eyebrow">ДЛЯ МАЛЕНЬКОЙ ДОМАШНЕЙ КУХНИ</span>
           <h2>За продуктами</h2>
           <p>

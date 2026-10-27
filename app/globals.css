@@ -5514,3 +5514,175 @@ details p {
     font-size: 10px;
   }
 }
+
+/* Built-in pixel-art choices; all artwork is local and user-selectable. */
+.art-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 10px 0 22px;
+}
+.art-picker button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 66px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+  font-size: 12px;
+}
+.art-picker button.active {
+  border-color: var(--forest-leaf);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--forest-leaf), transparent 74%);
+}
+.art-picker-image {
+  width: 72px;
+  height: 48px;
+  flex: none;
+  border-radius: 5px;
+}
+.art-picker button[aria-label] .art-picker-image {
+  width: 46px;
+  height: 46px;
+}
+.curated-meadow {
+  display: block;
+  object-fit: contain;
+}
+.curated-small-art {
+  width: 150px;
+  height: 92px;
+  display: block;
+}
+.menu-illustration.curated-menu-illustration {
+  min-height: 95px;
+}
+.shopping-sheet .curated-small-art {
+  margin: 0 auto 10px;
+}
+.restaurant-dish {
+  perspective: 1100px;
+}
+.restaurant-dish-flip-inner {
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.52s ease;
+}
+.restaurant-dish.recipe-flipped .restaurant-dish-flip-inner {
+  transform: rotateY(180deg);
+}
+.restaurant-dish-front,
+.restaurant-dish-back {
+  grid-area: 1/1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.restaurant-dish-back {
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 175px;
+  padding: 4px 48px 12px;
+  color: var(--menu-ink);
+}
+.restaurant-dish-back h3 {
+  margin: 6px 0 12px;
+  font-size: 22px;
+}
+.restaurant-dish-back > p {
+  white-space: pre-wrap;
+  line-height: 1.75;
+  margin: 0 0 10px;
+}
+.restaurant-dish-back .recipe-back-notes {
+  font-size: 12px;
+  color: var(--muted);
+}
+.recipe-flip-trigger {
+  margin: 12px 0 0 47px;
+  padding: 5px 0;
+  color: var(--course);
+  font-size: 12px;
+  border-bottom: 1px dotted currentColor;
+}
+.restaurant-dish-back .recipe-flip-trigger {
+  margin-left: 0;
+}
+@media (max-width: 600px) {
+  .art-picker {
+    grid-template-columns: 1fr;
+  }
+  .restaurant-dish-back {
+    padding: 6px 8px 12px;
+  }
+  .recipe-flip-trigger {
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .restaurant-dish-flip-inner {
+    transition: none;
+  }
+}
+
+.recipe-collection-card {
+  perspective: 1000px;
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.5s ease;
+}
+.collection-flip-inner,
+.collection-recipe-back {
+  grid-area: 1/1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.collection-flip-inner {
+  transform-style: preserve-3d;
+}
+.recipe-collection-flipped .collection-flip-inner {
+  transform: rotateY(180deg);
+}
+.collection-recipe-front {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.collection-recipe-back {
+  transform: rotateY(180deg);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 200px;
+}
+.collection-recipe-back h3 {
+  margin: 8px 0;
+  font-size: 19px;
+}
+.collection-recipe-back p {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+.random-recipe-inline {
+  margin: 16px auto;
+  max-width: 620px;
+  text-align: left;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.random-recipe-inline p {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+@media (prefers-reduced-motion: reduce) {
+  .recipe-collection-card,
+  .collection-flip-inner {
+    transition: none;
+  }
+}

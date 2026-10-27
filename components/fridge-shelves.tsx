@@ -9,20 +9,26 @@ export default function FridgeShelves({ items, onEdit, onRemove, onAdd }: any) {
       name: "Молочное и маленькие запасы",
       caption: "Верхняя полка",
       items: items.filter((i: any) =>
-        ["carton", "cheese", "eggs", "jar"].includes(productKind(i.name)),
+        ["carton", "cheese", "eggs", "jar", "mushroom"].includes(
+          productKind(i.name),
+        ),
       ),
     },
     {
       name: "Напитки и то, что под рукой",
       caption: "Средняя полка",
       items: items.filter((i: any) =>
-        ["bottle", "bag"].includes(productKind(i.name)),
+        ["bottle", "bag", "grains", "nuts", "bread", "herbs"].includes(
+          productKind(i.name),
+        ),
       ),
     },
     {
-      name: "Овощи, фрукты и зелень",
-      caption: "Нижний ящик",
-      items: items.filter((i: any) => productKind(i.name) === "produce"),
+      name: "Овощи, мясо и заморозка",
+      caption: "Нижняя полка",
+      items: items.filter((i: any) =>
+        ["produce", "meat", "fish", "frozen"].includes(productKind(i.name)),
+      ),
     },
   ];
   return (

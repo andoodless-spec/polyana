@@ -43,6 +43,10 @@ export function emptyData() {
       mode: "day",
       dishView: "text",
       menuImage: "",
+      headerArt: "meadow",
+      menuArt: "flowers",
+      shoppingArt: "fern",
+      faviconArt: "leaf",
       nav: ["home", "diary", "kitchen", "shelf"],
       blocks: [...blocks],
       hidden: [],
@@ -221,17 +225,31 @@ export function parseIngredients(text: string) {
   return text
     .split("\n")
     .filter((x) => x.trim())
-    .map((line) => {
+    .map((raw) => {
+      const line = raw
+        .trim()
+        .replace(/^[-*•]\s*/, "")
+        .replace(/^\|+|\|+$/g, "")
+        .replace(/\*\*/g, "")
+        .replace(/__/g, "");
       const parts = line.split("|").map((x) => x.trim());
-      if (parts.length >= 2)
+      if (parts.length >= 2) {
+        const amount = (parts[1] || "").toLowerCase();
+        const unit = (parts[2] || "").toLowerCase();
+        const byTaste =
+          ["п.в.", "пв", "по вкусу"].includes(amount) ||
+          ["п.в.", "пв", "по вкусу"].includes(unit);
         return {
           name: parts[0],
           qty:
-            parts[1] !== "" && !isNaN(Number(parts[1].replace(",", ".")))
-              ? Number(parts[1].replace(",", "."))
-              : "",
-          unit: parts[2] || "",
+            byTaste ||
+            parts[1] === "" ||
+            isNaN(Number(parts[1].replace(",", ".")))
+              ? ""
+              : Number(parts[1].replace(",", ".")),
+          unit: byTaste ? "п.в." : parts[2] || "",
         };
+      }
       const m = line.match(/^(.+?)\s*[—–:]\s*(\d+(?:[.,]\d+)?)\s*(.*)$/);
       return m
         ? {
@@ -245,13 +263,20 @@ export function parseIngredients(text: string) {
 export function parseRecipes(text: string) {
   const normalized = text.replace(/\r\n?/g, "\n");
   const chunks = normalized
-    .split(/\n\s*---+\s*\n|\n(?=Название:\s*)/i)
-    .filter((s) => s.trim());
+    .split(
+      /\n\s*---+\s*\n|\n(?=\s*(?:[-*]\s*)?(?:\*\*)?Название(?:\*\*)?:\s*)/i,
+    )
+    .filter((s) =>
+      /^\s*(?:[-*]\s*)?(?:\*\*)?Название(?:\*\*)?:/i.test(s.trim()),
+    );
   return chunks.map((source) => {
     const lines = source.trim().split("\n"),
       first = lines.shift() || "";
     const d: any = {
-      title: first.replace(/^Название:\s*/i, "").trim(),
+      title: first
+        .replace(/^\s*(?:[-*]\s*)?(?:\*\*)?Название(?:\*\*)?:\s*/i, "")
+        .replace(/\*\*/g, "")
+        .trim(),
       category: "Другое",
       portions: "",
       kcal: "",
@@ -267,7 +292,17 @@ export function parseRecipes(text: string) {
     let section = "notes";
     const ing: string[] = [];
     const plan: string[] = [];
-    for (const line of lines) {
+    for (const rawLine of lines) {
+      const line = rawLine
+        .trim()
+        .replace(/\*\*/g, "")
+        .replace(/__/g, "")
+        .replace(/^[-*•]\s*/, "");
+      if (/^Итоговая стоимость покупок(?:\s+ориентировочно)?\s*:/i.test(line)) {
+        section = "summary";
+        continue;
+      }
+      if (section === "summary") continue;
       let m;
       if ((m = line.match(/^Категория:\s*(.*)$/i))) {
         const c = m[1].trim();

@@ -1,5 +1,4 @@
 import { fmt } from "./data";
-import { loadMenuImage } from "./menu-image";
 // Canvas rendering avoids external capture services, network fonts and hidden UI controls.
 export async function createMenuPng(data: any, from: string, to: string) {
   await document.fonts.ready;
@@ -49,13 +48,15 @@ export async function createMenuPng(data: any, from: string, to: string) {
     const ingredients = (d?.ingredients || []).map((i: any) => ({
       name: wrap(i.name, 730, '26px "Brand Pixel"'),
       amount:
-        i.qty !== ""
-          ? fmt(
-              (Number(i.qty) * Number(m.portions)) / Number(d.portions || 1),
-            ) +
-            " " +
-            i.unit
-          : "не указано",
+        i.unit === "п.в."
+          ? "п.в."
+          : i.qty !== ""
+            ? fmt(
+                (Number(i.qty) * Number(m.portions)) / Number(d.portions || 1),
+              ) +
+              " " +
+              i.unit
+            : "не указано",
     }));
     const h =
       111 +
@@ -102,25 +103,8 @@ export async function createMenuPng(data: any, from: string, to: string) {
     ctx.fillStyle = gold;
     ctx.fillRect(x - 4, y - 5, 14, 10);
   }
-  const artwork = await loadMenuImage(data.settings?.menuImage);
-  if (artwork) {
-    const scale = Math.min(
-      320 / artwork.naturalWidth,
-      112 / artwork.naturalHeight,
-    );
-    const width = artwork.naturalWidth * scale,
-      height = artwork.naturalHeight * scale;
-    ctx.drawImage(
-      artwork,
-      600 - width / 2,
-      55 + (112 - height) / 2,
-      width,
-      height,
-    );
-  } else {
-    sprig(567, 85);
-    sprig(609, 104);
-  }
+  sprig(567, 85);
+  sprig(609, 104);
   text(
     "МАЛЕНЬКАЯ ДОМАШНЯЯ КУХНЯ",
     600,

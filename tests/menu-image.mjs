@@ -1,5 +1,4 @@
 import { chromium, expect } from "@playwright/test";
-import { readFileSync } from "node:fs";
 const browser = await chromium.launch();
 const p = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = [];
@@ -10,138 +9,90 @@ await expect(p).toHaveTitle("полянка — место, где можно б
 await expect(p.locator(".brand")).toHaveText("полянка.");
 const nav = async () =>
   p
-    .locator((await p.viewportSize()).width > 800 ? ".sidebar" : ".mobile-nav")
+    .locator(".sidebar")
     .getByRole("button", { name: "Кухонька", exact: true })
     .click();
 await nav();
+const dish = p.locator(".restaurant-dish").first();
+await expect(dish).toBeVisible();
+await expect(dish.locator(".recipe-flip-trigger").first()).toHaveText(
+  "Как приготовить",
+);
+await dish.getByRole("button", { name: "Как приготовить" }).click();
+await expect(dish).toHaveClass(/recipe-flipped/);
+await expect(dish.locator(".restaurant-dish-back")).toContainText("Нарезать");
+await dish.getByRole("button", { name: "Вернуться к блюду" }).click();
+await expect(dish).not.toHaveClass(/recipe-flipped/);
+await expect(p.locator(".menu-illustration svg")).toBeVisible();
+await expect(p.locator(".menu-art-controls input[type=file]")).toHaveCount(0);
+await expect(p.getByLabel("Промпт для ИИ")).toHaveCount(0);
+const beforeIcon = await p
+  .locator('link[data-polyanka-favicon="true"]')
+  .getAttribute("href");
+await p.getByRole("button", { name: "Настройки", exact: true }).click();
+await expect(p.locator(".art-picker-faviconArt button")).toHaveCount(4);
+await expect(p.locator(".art-picker-headerArt button")).toHaveCount(4);
+await expect(p.locator(".art-picker-menuArt button")).toHaveCount(4);
+await expect(p.locator(".art-picker-shoppingArt button")).toHaveCount(4);
+await p.locator(".art-picker-menuArt button").nth(2).click();
+await p.locator(".art-picker-headerArt button").nth(1).click();
+await p.locator(".art-picker-shoppingArt button").nth(2).click();
+await p.locator(".art-picker-faviconArt button").nth(2).click();
 await expect(
-  p.getByRole("button", { name: "Своя картинка меню", exact: true }),
-).toBeVisible();
-const artwork = async (color) =>
-  Buffer.from(
-    await p.evaluate((color) => {
-      const c = document.createElement("canvas");
-      c.width = 1200;
-      c.height = 800;
-      const ctx = c.getContext("2d");
-      ctx.fillStyle = color;
-      ctx.fillRect(0, 0, c.width, c.height);
-      return c.toDataURL("image/png").split(",")[1];
-    }, color),
-    "base64",
-  );
-await p
-  .getByLabel("Загрузить картинку меню", { exact: true })
-  .setInputFiles({
-    name: "art.png",
-    mimeType: "image/png",
-    buffer: await artwork("#628b8c"),
-  });
-await expect(
-  p.getByRole("img", { name: "Картинка меню", exact: true }),
-).toBeVisible();
+  p.locator('link[data-polyanka-favicon="true"]'),
+).not.toHaveAttribute("href", beforeIcon);
 await expect
-  .poll(async () =>
-    p.evaluate(() =>
-      JSON.parse(
-        localStorage.getItem("polyanka-demo"),
-      ).settings.menuImage?.startsWith("data:image/webp;base64,"),
+  .poll(() =>
+    p.evaluate(
+      () => JSON.parse(localStorage.getItem("polyanka-demo")).settings.menuArt,
     ),
   )
-  .toBe(true);
-const stored = await p.evaluate(
-  () => JSON.parse(localStorage.getItem("polyanka-demo")).settings.menuImage,
-);
-const dimensions = await p
-  .getByRole("img", { name: "Картинка меню", exact: true })
-  .evaluate((e) => [e.naturalWidth, e.naturalHeight]);
-if (dimensions[0] > 640 || dimensions[1] > 400)
-  throw Error("Artwork not resized");
-await p.reload();
-await p.getByRole("heading", { name: "Мой уголок", exact: false }).waitFor();
-await nav();
-await expect(
-  p.getByRole("img", { name: "Картинка меню", exact: true }),
-).toHaveAttribute("src", stored);
-// Invalid, oversized and unreadable files must not replace the current artwork.
-for (const file of [
-  {
-    name: "not-image.txt",
-    mimeType: "text/plain",
-    buffer: Buffer.from("not an image"),
-  },
-  { name: "broken.png", mimeType: "image/png", buffer: Buffer.from("broken") },
-  {
-    name: "too-large.png",
-    mimeType: "image/png",
-    buffer: Buffer.alloc(8_000_001),
-  },
-]) {
-  await p
-    .getByLabel("Загрузить картинку меню", { exact: true })
-    .setInputFiles(file);
-  await expect(p.locator(".menu-art-error")).toBeVisible();
-  await expect(
-    p.getByRole("img", { name: "Картинка меню", exact: true }),
-  ).toHaveAttribute("src", stored);
-}
-await p
-  .getByLabel("Загрузить картинку меню", { exact: true })
-  .setInputFiles({
-    name: "replacement.png",
-    mimeType: "image/png",
-    buffer: await artwork("#8c9c70"),
-  });
-await expect(
-  p.getByRole("img", { name: "Картинка меню", exact: true }),
-).not.toHaveAttribute("src", stored);
-await expect(p.locator(".menu-art-error")).toHaveCount(0);
-const dl = p.waitForEvent("download");
-await p.getByRole("button", { name: "В PNG", exact: true }).click();
-await (await dl).saveAs("test-artifacts/v3-custom-menu-export.png");
-const png = readFileSync("test-artifacts/v3-custom-menu-export.png").toString(
-  "base64",
-);
-const pixel = await p.evaluate(async (base64) => {
-  const image = new Image();
-  image.src = "data:image/png;base64," + base64;
-  await image.decode();
-  const c = document.createElement("canvas");
-  c.width = image.width;
-  c.height = image.height;
-  const ctx = c.getContext("2d");
-  ctx.drawImage(image, 0, 0);
-  return [...ctx.getImageData(600, 100, 1, 1).data];
-}, png);
-if (
-  Math.abs(pixel[0] - 140) > 8 ||
-  Math.abs(pixel[1] - 156) > 8 ||
-  Math.abs(pixel[2] - 112) > 8
-)
-  throw Error("Custom artwork missing in PNG: " + pixel);
-await p.setViewportSize({ width: 320, height: 740 });
-if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
-  throw Error("Artwork overflow320");
-await p
-  .getByRole("button", { name: "Вернуть стандартную", exact: true })
-  .click();
-await expect(
-  p.getByRole("img", { name: "Картинка меню", exact: true }),
-).toHaveCount(0);
-await expect(p.locator(".menu-illustration .forest-detail")).toBeVisible();
+  .toBe("teapot");
 await expect
-  .poll(async () =>
+  .poll(() =>
     p.evaluate(
       () =>
-        JSON.parse(localStorage.getItem("polyanka-demo")).settings.menuImage,
+        JSON.parse(localStorage.getItem("polyanka-demo")).settings.headerArt,
     ),
   )
-  .toBe("");
+  .toBe("garden");
+await expect
+  .poll(() =>
+    p.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("polyanka-demo")).settings.shoppingArt,
+    ),
+  )
+  .toBe("apple");
+await expect
+  .poll(() =>
+    p.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("polyanka-demo")).settings.faviconArt,
+    ),
+  )
+  .toBe("mushroom");
+await p.getByRole("button", { name: "Закрыть", exact: true }).click();
 await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
-await p.getByRole("button", { name: "Подсказка и промпт для разбора" }).click();
-await expect(p.getByLabel("Промпт для ИИ")).toContainText("«полянка»");
+await expect(p.locator(".sub-tabs button").first()).toHaveText(
+  "Разобрать текст",
+);
+await p
+  .getByLabel("Текст рецептов")
+  .fill(
+    "Название: Рис\nКатегория: Горячее\nПорции: 2\nКкал на порцию: 200\nИнгредиенты:\nРис | 100 | г\nПаприка | п.в. |\nПриготовление:\nСварить.",
+  );
+await p
+  .getByRole("button", { name: "Разобрать текст", exact: true })
+  .last()
+  .click();
+await expect(p.locator(".parsed-recipe")).toHaveCount(1);
+await expect(p.locator(".parsed-recipe")).toContainText("п.в.");
+await p.setViewportSize({ width: 320, height: 740 });
+if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
+  throw Error("Artwork or settings overflow 320px");
 console.log(
-  "Menu artwork: lowercase brand/title/prompt, upload/compression, persistence, replace, invalid/oversized/unreadable handling, custom PNG pixel,320px and reset passed. Errors:",
+  "Menu card flip, return, built-in 4-choice art galleries, persistent preferences, dynamic favicon, no custom uploads/prompt panel, p.v. parsing and 320px layout passed. Errors:",
   errors,
 );
 await browser.close();

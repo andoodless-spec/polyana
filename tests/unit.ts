@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import {
   parseRecipes,
+  parseIngredients,
   shoppingFor,
   emptyData,
   ingredientMatch,
 } from "../lib/data";
 import { calendarText } from "../lib/calendar";
+import { productKind } from "../lib/products";
 const r = parseRecipes(
   "Название: Суп\nКатегория: Суп\nПорции:\nКкал на порцию:\nИнгредиенты:\nВода | 1 | л\nПриготовление:\nВарить.\nПримечания:\nСвой текст.\nНазвание: Салат\nПорции: 2\nИнгредиенты:\nСыр | 30 | г",
 );
@@ -157,3 +159,51 @@ assert.equal(
   "data:image/webp;base64,UklGRg==",
 );
 assert.equal(menuImage("data:image/png;base64," + "A".repeat(600000)), "");
+
+const taste = parseIngredients(
+  "Паприка | п.в. |\n**Горчица** | п.в. |\nУксус | 5 | мл",
+);
+assert.equal(taste[0].qty, "");
+assert.equal(taste[0].unit, "п.в.");
+assert.equal(taste[1].unit, "п.в.");
+assert.equal(taste[2].qty, 5);
+const markdownMenu = parseRecipes(`**Название:** Курица с рисом
+**Категория:** Горячее
+**Порции:** 2
+**Ккал на порцию:** 430
+**Ингредиенты:**
+- Курица | 300 | г
+- Рис | 100 | г
+- Паприка | п.в. |
+**Приготовление:**
+Запечь.
+Итоговая стоимость покупок ориентировочно: 18 €`);
+assert.equal(markdownMenu.length, 1);
+assert.equal(markdownMenu[0].title, "Курица с рисом");
+assert.equal(markdownMenu[0].ingredients[2].unit, "п.в.");
+assert(!markdownMenu[0].notes.includes("Итоговая стоимость"));
+
+const tasteShopping = emptyData();
+tasteShopping.dishes = [
+  {
+    id: "taste",
+    portions: 2,
+    ingredients: [{ name: "Паприка", qty: "", unit: "п.в." }],
+  },
+];
+tasteShopping.menu = [
+  { id: "taste-menu", date: "2026-11-02", dishId: "taste", portions: 3 },
+];
+const tasteList = shoppingFor(tasteShopping, "2026-11-02", "2026-11-02");
+assert.equal(tasteList[0].qty, "");
+assert.equal(tasteList[0].unit, "п.в.");
+for (const [product, kind] of [
+  ["Курица", "meat"],
+  ["Лосось", "fish"],
+  ["Хлеб", "bread"],
+  ["Грибы", "mushroom"],
+  ["Фасоль", "grains"],
+  ["Мята", "herbs"],
+]) {
+  assert.equal(productKind(product), kind);
+}

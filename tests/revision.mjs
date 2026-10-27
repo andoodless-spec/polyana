@@ -132,9 +132,15 @@ await expect(
 await save();
 await expect(p.locator(".restaurant-menu")).toBeVisible();
 await expect(p.locator(".ingredient-column").first()).toContainText("300 г");
-await expect(p.locator(".restaurant-menu")).not.toContainText(
+const menuDishCard = p.locator(".restaurant-dish").first();
+await expect(menuDishCard).not.toHaveClass(/recipe-flipped/);
+await menuDishCard.getByRole("button", { name: "Как приготовить" }).click();
+await expect(menuDishCard).toHaveClass(/recipe-flipped/);
+await expect(menuDishCard.locator(".restaurant-dish-back")).toContainText(
   "Варить двадцать минут",
 );
+await menuDishCard.getByRole("button", { name: "Вернуться к блюду" }).click();
+await expect(menuDishCard).not.toHaveClass(/recipe-flipped/);
 await expect(p.locator(".restaurant-menu")).toContainText("≈120");
 await shot("menu-desktop");
 const download = p.waitForEvent("download");
