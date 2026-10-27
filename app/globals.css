@@ -1191,6 +1191,7 @@ small {
   font-size: 20px;
   text-align: center;
   padding: 0;
+  margin: 6px auto;
   line-height: 1.25;
   display: block;
 }

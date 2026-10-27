@@ -12,7 +12,7 @@ import {
   parseMenuPeriod,
   validMenuDate,
 } from "../lib/menu-schedule";
-import { productKind, shoppingAmount } from "../lib/products";
+import { productKind } from "../lib/products";
 import { RECIPE_PROMPT } from "../lib/recipe-prompt";
 assert.match(RECIPE_PROMPT, /не указывай никакое масло/i);
 assert.match(RECIPE_PROMPT, /Чеснок \| п\.в\. \|/);
@@ -52,7 +52,6 @@ const waterData = emptyData();
 waterData.dishes = [{ id: "w", portions: 1, ingredients: [{ name: "Вода", qty: 250, unit: "мл" }] }];
 waterData.menu = [{ id: "wm", dishId: "w", portions: 1 }];
 assert.equal(shoppingFor(waterData, "", "")[0].name, "Вода");
-assert.equal(shoppingAmount({ name: "Рис", qty: 1200, unit: "г" }), "2 уп. по 900 г");
 
 const ics = calendarText([
   {

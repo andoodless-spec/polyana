@@ -39,32 +39,3 @@ export function groupProducts<T extends { name: string }>(items: T[]) {
   return [...groups].map(([name, items]) => ({ name, items }));
 }
 
-/** Approximate retail pack sizes for display only; recipe quantities remain exact for aggregation. */
-export function shoppingAmount(item: { name: string; qty: any; unit: string }) {
-  if (item.qty === "" || item.unit === "п.в.") return item.unit === "п.в." ? "п.в." : "";
-  const qty = Number(item.qty);
-  if (!Number.isFinite(qty) || qty <= 0) return "";
-  const name = normalize(item.name);
-  const unit = normalize(item.unit);
-  if (unit === "шт") {
-    const pack = /яйц/.test(name) ? 10 : /таблет|капсул/.test(name) ? 10 : 1;
-    const packs = Math.ceil(qty / pack);
-    return pack === 1 ? `${fmt(packs)} шт.` : `${packs} уп. по ${pack} шт.`;
-  }
-  if (unit === "мл" || unit === "л") {
-    const ml = qty * (unit === "л" ? 1000 : 1);
-    const pack = /молок|кефир|сливк|сок|вода/.test(name) ? 1000 : /уксус|соус|сироп/.test(name) ? 500 : 500;
-    return `${Math.ceil(ml / pack)} уп. по ${pack >= 1000 ? `${pack / 1000} л` : `${pack} мл`}`;
-  }
-  if (unit === "кг" || unit === "г") {
-    const grams = qty * (unit === "кг" ? 1000 : 1);
-    let pack = 500;
-    if (/круп|рис|греч|мук|сахар|макарон|овсян|фасол|чечев|горох|нут|кофе|чай/.test(name)) pack = 900;
-    else if (/сыр|творог|сметан|йогурт|масло/.test(name)) pack = 200;
-    else if (/консерв|томаты в собственном/.test(name)) pack = 400;
-    else if (/морков|картоф|лук|яблок|груш|банан|помидор|огур|капуст|лимон/.test(name)) pack = 500;
-    const packs = Math.ceil(grams / pack);
-    return `${packs} уп. по ${pack} г`;
-  }
-  return `${fmt(qty)} ${item.unit}`;
-}
