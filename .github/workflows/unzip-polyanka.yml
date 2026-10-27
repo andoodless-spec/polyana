@@ -76,7 +76,7 @@ jobs:
           required = {'package.json', 'package-lock.json', 'app/page.tsx', 'app/layout.tsx', 'app/polyanka.tsx', 'app/globals.css', 'lib/recipe-prompt.ts', 'AI-MENU-PROMPT.txt', 'public/fonts/pixelify.ttf', 'tests/unit.ts'}
           if not required.issubset(files):
               raise SystemExit('Не хватает обязательных файлов в ZIP: ' + ', '.join(sorted(required - files.keys())))
-          if json.loads(files['package.json']).get('version') != '1.3.0':
+          if json.loads(files['package.json']).get('version') != '1.3.1':
               raise SystemExit('Ожидалась версия сайта 1.3.0.')
           for name, content in files.items():
               target = root / name
