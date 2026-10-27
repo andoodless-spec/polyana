@@ -7,6 +7,7 @@ import {
   ingredientMatch,
 } from "../lib/data";
 import { calendarText } from "../lib/calendar";
+import { parseMenuSchedule, validMenuDate } from "../lib/menu-schedule";
 import { productKind } from "../lib/products";
 const r = parseRecipes(
   "Название: Суп\nКатегория: Суп\nПорции:\nКкал на порцию:\nИнгредиенты:\nВода | 1 | л\nПриготовление:\nВарить.\nПримечания:\nСвой текст.\nНазвание: Салат\nПорции: 2\nИнгредиенты:\nСыр | 30 | г",
@@ -59,7 +60,6 @@ console.log(
 
 // Period-based menu imports: validation precedes all changes, safe defaults,
 // content deduplication, explicit date-scoped replacement and retained sources.
-import { parseMenuSchedule, validMenuDate } from "../lib/menu-schedule";
 import { applyRecipeImport } from "../lib/recipe-import";
 assert(validMenuDate("2028-02-29"));
 for (const date of ["2026-02-29", "2026-04-31", "2026-13-01", "26-11-02"])
@@ -171,6 +171,9 @@ const markdownMenu = parseRecipes(`**Название:** Курица с рис�
 **Категория:** Горячее
 **Порции:** 2
 **Ккал на порцию:** 430
+**В меню:**
+- 2026-11-02 | 2
+2026-11-05 — 2 порции
 **Ингредиенты:**
 - Курица | 300 | г
 - Рис | 100 | г
@@ -181,6 +184,11 @@ const markdownMenu = parseRecipes(`**Название:** Курица с рис�
 assert.equal(markdownMenu.length, 1);
 assert.equal(markdownMenu[0].title, "Курица с рисом");
 assert.equal(markdownMenu[0].ingredients[2].unit, "п.в.");
+assert.deepEqual(markdownMenu[0].schedule, [
+  { date: "2026-11-02", portions: 2 },
+  { date: "2026-11-05", portions: 2 },
+]);
+assert.equal(markdownMenu[0].scheduleErrors.length, 0);
 assert(!markdownMenu[0].notes.includes("Итоговая стоимость"));
 
 const tasteShopping = emptyData();
@@ -207,3 +215,18 @@ for (const [product, kind] of [
 ]) {
   assert.equal(productKind(product), kind);
 }
+
+const scheduleVariants = parseMenuSchedule(
+  `2026-12-01 | 2\n- 2026-12-02 — 3 порции\n01.12.2026 | 2,5`,
+);
+assert.deepEqual(scheduleVariants.schedule, [
+  { date: "2026-12-01", portions: 2 },
+  { date: "2026-12-02", portions: 3 },
+  { date: "2026-12-01", portions: 2.5 },
+]);
+assert.equal(scheduleVariants.scheduleErrors.length, 0);
+assert.equal(parseMenuSchedule("следующий вторник | 2").schedule.length, 0);
+assert.equal(
+  parseMenuSchedule("следующий вторник | 2").scheduleErrors.length,
+  1,
+);

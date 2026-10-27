@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { ForestDetail, Meadow } from "@/app/art";
 
 export const artOptions: Record<string, { id: string; label: string }[]> = {
   headerArt: [
@@ -31,7 +32,7 @@ export const artOptions: Record<string, { id: string; label: string }[]> = {
 const palettes = [
   ["#e9eddf", "#9eae88", "#617b5c", "#d5c89b", "#f8f4e7"],
   ["#edf0e4", "#aab88e", "#758b66", "#e3c98e", "#fff9e9"],
-  ["#e7eee9", "#9db9a5", "#638577", "#d8c99d", "#f6f2df"],
+  ["#e7e9df", "#a7b298", "#6c846d", "#d8c99d", "#f4f0e2"],
   ["#f0eddf", "#b5b58a", "#758461", "#d7b98a", "#fff9e8"],
 ];
 
@@ -97,9 +98,18 @@ export function CuratedArt({
       </svg>
     );
   }
+  if (slot === "headerArt" && value === "meadow") {
+    return <Meadow className={className} />;
+  }
+  if (slot === "menuArt" && value === "flowers") {
+    return <ForestDetail kind="flowers" className={className} />;
+  }
+  if (slot === "shoppingArt" && value === "fern") {
+    return <ForestDetail kind="fern" className={className} />;
+  }
   return (
     <svg
-      className={className}
+      className={slot === "headerArt" ? "meadow " + className : className}
       viewBox={slot === "headerArt" ? "0 0 520 270" : "0 0 180 110"}
       shapeRendering="crispEdges"
       role="img"
@@ -150,7 +160,7 @@ export function CuratedArt({
                 d="M56 192v-98h20V76h55v27h17v89zM384 193v-80h18V82h47v31h17v80z"
                 fill={deep}
               />
-              <path d="M0 186h520v20H0zM0 207h520v12H0z" fill="#91b6a1" />
+              <path d="M0 186h520v20H0zM0 207h520v12H0z" fill={hill} />
               <path d="M190 193v-54h145v54z" fill={paper} />
               <path d="M180 143h165l-18-16H198z" fill={accent} />
               <path d="M250 160h28v33h-28z" fill={deep} />

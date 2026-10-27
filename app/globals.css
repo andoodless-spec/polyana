@@ -7,10 +7,10 @@
 }
 :root {
   --brand-font: "Brand Pixel", monospace;
-  --paper: #f6f5ed;
-  --paper-deep: #eff0e6;
-  --surface: #fcfcf6;
-  --surface-deep: #eaeddf;
+  --paper: #eeede2;
+  --paper-deep: #e4e4d8;
+  --surface: #f6f5eb;
+  --surface-deep: #e1e4d6;
   --line: #dce1d1;
   --ink: #354730;
   --muted: #848b75;
@@ -23,10 +23,10 @@
   color-scheme: light;
 }
 :root[data-theme="moss"] {
-  --paper: #f0f3eb;
-  --paper-deep: #e8eee3;
-  --surface: #f8fbf5;
-  --surface-deep: #e1e9db;
+  --paper: #e9ede3;
+  --paper-deep: #dee6da;
+  --surface: #f1f4ec;
+  --surface-deep: #dce4d7;
   --line: #d0dece;
   --ink: #354b3b;
   --muted: #7c8e7d;
@@ -35,10 +35,10 @@
   --wash: #e1ebdf;
 }
 :root[data-theme="oat"] {
-  --paper: #f7f3e8;
-  --paper-deep: #eee9d9;
-  --surface: #fffcf1;
-  --surface-deep: #ede7d5;
+  --paper: #eee9dc;
+  --paper-deep: #e5dfcf;
+  --surface: #f7f2e5;
+  --surface-deep: #e5decc;
   --line: #e0dac4;
   --ink: #514f35;
   --muted: #979078;
@@ -3125,9 +3125,9 @@ details p {
   --note-one: #f1efdf;
   --note-two: #edf0e4;
   --book-paper: var(--surface);
-  --menu-paper: #faf6e9;
-  --menu-soft: #eee9d6;
-  --menu-rule: #ded8bb;
+  --menu-paper: #f0ecdd;
+  --menu-soft: #e4dfcc;
+  --menu-rule: #d4cdb2;
   --menu-ink: #655f43;
   --course-soup: #ad9270;
   --course-salad: #81976d;
@@ -5539,11 +5539,32 @@ details p {
   border-color: var(--forest-leaf);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--forest-leaf), transparent 74%);
 }
+.prompt-display {
+  display: block;
+  width: 100%;
+  min-height: 52vh;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font:
+    13px/1.6 ui-monospace,
+    monospace;
+  white-space: pre-wrap;
+}
 .art-picker-image {
   width: 72px;
   height: 48px;
   flex: none;
   border-radius: 5px;
+}
+.art-picker .meadow.art-picker-image {
+  position: static;
+  width: 72px;
+  height: 48px;
+  max-height: none;
 }
 .art-picker button[aria-label] .art-picker-image {
   width: 46px;
@@ -5554,8 +5575,8 @@ details p {
   object-fit: contain;
 }
 .curated-small-art {
-  width: 150px;
-  height: 92px;
+  width: 94px;
+  height: 63px;
   display: block;
 }
 .menu-illustration.curated-menu-illustration {
@@ -5634,24 +5655,21 @@ details p {
 .recipe-collection-card {
   perspective: 1000px;
   display: grid;
+}
+.collection-flip-inner {
+  grid-area: 1/1;
+  display: grid;
   transform-style: preserve-3d;
   transition: transform 0.5s ease;
 }
-.collection-flip-inner,
+.collection-recipe-front,
 .collection-recipe-back {
   grid-area: 1/1;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-.collection-flip-inner {
-  transform-style: preserve-3d;
-}
 .recipe-collection-flipped .collection-flip-inner {
   transform: rotateY(180deg);
-}
-.collection-recipe-front {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 .collection-recipe-back {
   transform: rotateY(180deg);

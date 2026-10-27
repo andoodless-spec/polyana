@@ -1,7 +1,15 @@
-export function Meadow({ small = false }: { small?: boolean }) {
+export function Meadow({
+  small = false,
+  className = "",
+}: {
+  small?: boolean;
+  className?: string;
+}) {
   return (
     <svg
-      className={small ? "meadow small" : "meadow"}
+      className={
+        (small ? "meadow small" : "meadow") + (className ? " " + className : "")
+      }
       viewBox="0 0 520 270"
       role="img"
       aria-label="Тихая пиксельная полянка с домиком, деревьями и цветами"

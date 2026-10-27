@@ -80,6 +80,7 @@ import {
 } from "@/components/widgets";
 import { createShoppingPng } from "@/lib/shopping-export";
 import { parseMenuSchedule, scheduleText } from "@/lib/menu-schedule";
+import { RECIPE_PROMPT } from "@/lib/recipe-prompt";
 import { applyRecipeImport } from "@/lib/recipe-import";
 import ShoppingSheet from "@/components/shopping-sheet";
 import FridgeShelves from "@/components/fridge-shelves";
@@ -1226,7 +1227,7 @@ export default function Polyanka() {
                 <CuratedArt
                   slot="headerArt"
                   value={data.settings.headerArt || "meadow"}
-                  className="meadow curated-meadow"
+                  className="curated-meadow"
                 />
                 <span className="hero-caption">
                   маленький мир, в котором ты дома
@@ -1536,33 +1537,33 @@ export default function Polyanka() {
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                            <div
-                              className="collection-recipe-back"
-                              aria-hidden={!dishFlips[d.id]}
-                            >
-                              <span className="eyebrow">
-                                СПОСОБ ПРИГОТОВЛЕНИЯ
-                              </span>
-                              <h3>{d.title}</h3>
-                              <p className="preserve">
-                                {d.recipe?.trim() ||
-                                  "Способ приготовления пока не добавлен."}
-                              </p>
-                              {d.notes && (
-                                <p className="preserve muted">{d.notes}</p>
-                              )}
-                              <button
-                                className="text-link"
-                                onClick={() =>
-                                  setDishFlips((old) => ({
-                                    ...old,
-                                    [d.id]: false,
-                                  }))
-                                }
+                              <div
+                                className="collection-recipe-back"
+                                aria-hidden={!dishFlips[d.id]}
                               >
-                                Вернуться к блюду
-                              </button>
+                                <span className="eyebrow">
+                                  СПОСОБ ПРИГОТОВЛЕНИЯ
+                                </span>
+                                <h3>{d.title}</h3>
+                                <p className="preserve">
+                                  {d.recipe?.trim() ||
+                                    "Способ приготовления пока не добавлен."}
+                                </p>
+                                {d.notes && (
+                                  <p className="preserve muted">{d.notes}</p>
+                                )}
+                                <button
+                                  className="text-link"
+                                  onClick={() =>
+                                    setDishFlips((old) => ({
+                                      ...old,
+                                      [d.id]: false,
+                                    }))
+                                  }
+                                >
+                                  Вернуться к блюду
+                                </button>
+                              </div>
                             </div>
                           </article>
                         ))}
@@ -1789,6 +1790,14 @@ export default function Polyanka() {
                 <section className="card import-card">
                   <div className="card-heading">
                     <h2>Из текста — в твою коллекцию</h2>
+                    <button
+                      className="help"
+                      aria-label="Промпт для ИИ"
+                      title="Промпт для ИИ"
+                      onClick={() => setModal({ type: "recipePrompt" })}
+                    >
+                      <Info size={18} />
+                    </button>
                   </div>
                   <p className="muted">
                     Готовое меню от твоего ИИ или свои рецепты. Проверим блюда,
@@ -2726,6 +2735,7 @@ export default function Polyanka() {
             (
               {
                 shelfHelp: "Своя полка — как всё устроено",
+                recipePrompt: "Промпт для помощника по меню",
                 help: "Листик-подсказка",
                 dish: "Твой рецепт",
                 dishView: "Из твоей кухоньки",
@@ -2742,6 +2752,21 @@ export default function Polyanka() {
           onClose={() => setModal(null)}
         >
           {modal.type === "shelfHelp" && <ShelfInformation />}
+          {modal.type === "recipePrompt" && (
+            <div className="help-content">
+              <p>
+                Текст для внешнего ИИ: кнопка показывает промпт, но сайт сам не
+                генерирует рецепты.
+              </p>
+              <textarea
+                className="prompt-display"
+                aria-label="Текст промпта меню"
+                value={RECIPE_PROMPT}
+                readOnly
+                rows={20}
+              />
+            </div>
+          )}
           {modal.type === "help" && (
             <div className="help-content">
               <Leaf size={36} />

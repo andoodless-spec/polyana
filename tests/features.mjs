@@ -133,7 +133,11 @@ await expect(p.locator(".sub-tabs button").first()).toHaveText(
   "Разобрать текст",
 );
 await expect(p.getByLabel("Текст рецептов")).toBeVisible();
-await expect(p.getByLabel("Промпт для ИИ")).toHaveCount(0);
+await p.getByRole("button", { name: "Промпт для ИИ" }).click();
+await expect(p.getByLabel("Текст промпта меню")).toHaveValue(
+  /ПЯТЬ ОБЯЗАТЕЛЬНЫХ ВОПРОСОВ/,
+);
+await p.keyboard.press("Escape");
 await p
   .getByLabel("Текст рецептов")
   .fill(

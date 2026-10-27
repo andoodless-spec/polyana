@@ -326,7 +326,9 @@ export function parseRecipes(text: string) {
       } else if ((m = line.match(/^Ккал приблизительно:\s*(.*)$/i))) {
         d.kcalEstimated = /^(да|yes|true)$/i.test(m[1].trim());
         section = "notes";
-      } else if ((m = line.match(/^В меню:\s*(.*)$/i))) {
+      } else if (
+        (m = line.match(/^(?:В меню|Даты меню|Расписание меню):\s*(.*)$/i))
+      ) {
         section = "schedule";
         if (m[1]) plan.push(m[1]);
       } else if ((m = line.match(/^Ингредиенты:\s*(.*)$/i))) {

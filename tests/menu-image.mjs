@@ -7,6 +7,10 @@ await p.goto("http://localhost:3000");
 await p.getByRole("heading", { name: "Мой уголок", exact: false }).waitFor();
 await expect(p).toHaveTitle("полянка — место, где можно быть собой");
 await expect(p.locator(".brand")).toHaveText("полянка.");
+await expect(p.locator(".welcome .meadow")).toHaveAttribute(
+  "aria-label",
+  "Тихая пиксельная полянка с домиком, деревьями и цветами",
+);
 const nav = async () =>
   p
     .locator(".sidebar")
@@ -25,7 +29,6 @@ await dish.getByRole("button", { name: "Вернуться к блюду" }).cli
 await expect(dish).not.toHaveClass(/recipe-flipped/);
 await expect(p.locator(".menu-illustration svg")).toBeVisible();
 await expect(p.locator(".menu-art-controls input[type=file]")).toHaveCount(0);
-await expect(p.getByLabel("Промпт для ИИ")).toHaveCount(0);
 const beforeIcon = await p
   .locator('link[data-polyanka-favicon="true"]')
   .getAttribute("href");
@@ -77,6 +80,25 @@ await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
 await expect(p.locator(".sub-tabs button").first()).toHaveText(
   "Разобрать текст",
 );
+await p.getByRole("button", { name: "Промпт для ИИ" }).click();
+await expect(p.getByLabel("Текст промпта меню")).toHaveValue(
+  /ПЯТЬ ОБЯЗАТЕЛЬНЫХ ВОПРОСОВ/,
+);
+await p.keyboard.press("Escape");
+await p.getByRole("button", { name: "Коллекция", exact: true }).click();
+const collectionCard = p.locator(".recipe-collection-card").first();
+await collectionCard.getByRole("button", { name: "Крем-суп из тыквы" }).click();
+await expect(collectionCard).toHaveClass(/recipe-collection-flipped/);
+await expect(collectionCard.locator(".collection-recipe-back")).toHaveAttribute(
+  "aria-hidden",
+  "false",
+);
+await expect(collectionCard.locator(".collection-recipe-back")).toContainText(
+  "Нарезать овощи",
+);
+await collectionCard.getByRole("button", { name: "Вернуться к блюду" }).click();
+await expect(collectionCard).not.toHaveClass(/recipe-collection-flipped/);
+await p.getByRole("button", { name: "Разобрать текст", exact: true }).click();
 await p
   .getByLabel("Текст рецептов")
   .fill(
@@ -92,7 +114,7 @@ await p.setViewportSize({ width: 320, height: 740 });
 if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
   throw Error("Artwork or settings overflow 320px");
 console.log(
-  "Menu card flip, return, built-in 4-choice art galleries, persistent preferences, dynamic favicon, no custom uploads/prompt panel, p.v. parsing and 320px layout passed. Errors:",
+  "Menu and collection card flips, prompt information dialog, built-in art galleries, persistent preferences, dynamic favicon, no custom uploads, p.v. parsing and 320px layout passed. Errors:",
   errors,
 );
 await browser.close();
