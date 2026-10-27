@@ -1,228 +1,133 @@
-name: Распаковать ZIP и проверить main
+name: Распаковать обновление «полянки» и проверить main
 
-"on":
+on:
   workflow_dispatch: {}
   push:
     branches: [main]
     paths:
-      - polyanka-v3.zip
-      - .github/workflows/unzip-polyanka.yml
+      - polyanka-update.zip
+      - .github/workflows/unpack-polyanka-update.yml
 
 permissions:
   contents: write
 
 concurrency:
-  group: unpack-polyanka-main
+  group: unpack-polyanka-update-main
   cancel-in-progress: false
 
 jobs:
   unpack:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-
+    timeout-minutes: 10
     steps:
-      - name: Скачать именно ветку main
+      - name: Скачать ветку main
         uses: actions/checkout@v6
         with:
           ref: main
 
-      - name: Распаковать, отправить и проверить файлы на GitHub
+      - name: Безопасно распаковать, отправить и проверить каждый файл на GitHub
         shell: bash
         run: |
           python3 - <<'PY'
           import hashlib
+          import json
           import os
           import stat
           import subprocess
           import zipfile
           from pathlib import Path, PurePosixPath
 
-          def git(*args, data=None):
-              return subprocess.check_output(
-                  ['git', *args], input=data
-              )
+          def git(*args):
+              return subprocess.check_output(['git', *args])
 
           root = Path.cwd().resolve()
-          archive = root / 'polyanka-v3.zip'
-
+          archive = root / 'polyanka-update.zip'
           if not archive.is_file() or archive.is_symlink():
-              raise SystemExit(
-                  'В main нет polyanka-v3.zip. '
-                  'Загрузи ZIP в корень ветки main.'
-              )
+              raise SystemExit('Загрузите polyanka-update.zip в корень main.')
 
           files = {}
           total = 0
-
           with zipfile.ZipFile(archive) as z:
-              if len(z.infolist()) > 5000:
-                  raise SystemExit('Слишком много записей в ZIP.')
-
-              for item in z.infolist():
+              entries = z.infolist()
+              if len(entries) > 5000:
+                  raise SystemExit('В ZIP слишком много записей.')
+              for item in entries:
                   if item.is_dir():
                       continue
-
-                  path = PurePosixPath(item.filename)
-
-                  if (
-                      path.is_absolute()
-                      or '..' in path.parts
-                      or '\\' in item.filename
-                      or not path.parts
-                      or any(ord(c) < 32 for c in item.filename)
-                  ):
-                      raise SystemExit('Небезопасный путь в ZIP.')
-
+                  name = item.filename
+                  path = PurePosixPath(name)
+                  if (path.is_absolute() or '..' in path.parts or '\\' in name or
+                      not path.parts or any(ord(c) < 32 for c in name)):
+                      raise SystemExit('В ZIP найден небезопасный путь.')
                   if stat.S_ISLNK(item.external_attr >> 16):
-                      raise SystemExit('Ссылки в ZIP запрещены.')
-
+                      raise SystemExit('Символические ссылки в ZIP запрещены.')
                   if len(path.parts) < 2 or path.parts[0] != 'polyanka':
-                      raise SystemExit(
-                          'Нужен ZIP с внешней папкой polyanka/.'
-                      )
-
+                      raise SystemExit('Ожидается ZIP с внешней папкой polyanka/.')
                   relative = Path(*path.parts[1:])
-                  protected = {
-                      '.git', '.github', 'node_modules', '.next'
-                  }
-
-                  if any(p in protected for p in relative.parts):
-                      raise SystemExit('Защищённый путь в ZIP.')
-
-                  if any(
-                      p.startswith('.env') and p != '.env.example'
-                      for p in relative.parts
-                  ):
-                      raise SystemExit('Файлы с секретами запрещены.')
-
-                  name = relative.as_posix()
-
-                  if name in files or name == archive.name:
-                      raise SystemExit(
-                          'Повторяющийся или запрещённый путь.'
-                      )
-
-                  target = root / relative
-
-                  if target.is_symlink() or any(
-                      p.is_symlink() for p in target.parents
-                  ):
-                      raise SystemExit(
-                          'Путь содержит символическую ссылку.'
-                      )
-
-                  if not target.resolve().is_relative_to(root):
-                      raise SystemExit(
-                          'Выход за пределы репозитория.'
-                      )
-
-                  if target.exists() and not target.is_file():
-                      raise SystemExit(
-                          'Вместо файла существует папка: ' + name
-                      )
-
+                  blocked = {'.git', '.github', 'node_modules', '.next',
+                             '.vercel', 'dist', 'build', 'coverage',
+                             'test-artifacts', '__pycache__'}
+                  if any(part in blocked for part in relative.parts):
+                      raise SystemExit('Запрещённая папка в ZIP: ' + name)
+                  if relative.name == '.env' or (relative.name.startswith('.env.') and relative.name != '.env.example'):
+                      raise SystemExit('Файлы секретов .env в ZIP запрещены.')
+                  if item.file_size > 25_000_000:
+                      raise SystemExit('Слишком большой файл: ' + name)
                   total += item.file_size
-
-                  if total > 50_000_000:
-                      raise SystemExit(
-                          'Распакованные данные превышают 50 МБ.'
-                      )
-
-                  files[name] = z.read(item)
+                  if total > 100_000_000:
+                      raise SystemExit('Распакованный ZIP превышает 100 МБ.')
+                  rel = relative.as_posix()
+                  if rel in files or rel == archive.name:
+                      raise SystemExit('Повторяющийся или запрещённый путь: ' + rel)
+                  target = root / relative
+                  if target.is_symlink() or any(parent.is_symlink() for parent in target.parents):
+                      raise SystemExit('Целевой путь содержит символическую ссылку: ' + rel)
+                  if not target.resolve().is_relative_to(root):
+                      raise SystemExit('Путь выходит за пределы репозитория: ' + rel)
+                  if target.exists() and not target.is_file():
+                      raise SystemExit('Вместо файла уже существует папка: ' + rel)
+                  files[rel] = z.read(item)
 
           required = {
-              'package.json',
-              'app/page.tsx',
-              'app/layout.tsx',
-              'app/polyanka.tsx',
-              'public/fonts/pixelify.ttf',
+              'package.json', 'package-lock.json', 'app/page.tsx',
+              'app/layout.tsx', 'app/polyanka.tsx', 'app/globals.css',
+              'lib/recipe-prompt.ts', 'AI-MENU-PROMPT.txt',
+              'public/fonts/pixelify.ttf', 'tests/unit.ts'
           }
-
-          if len(files) != 49 or not required.issubset(files):
-              raise SystemExit(
-                  'Ожидается исходный polyanka-v3.zip с 49 файлами.'
-              )
-
+          if not required.issubset(files):
+              raise SystemExit('В архиве не хватает обязательных исходников: ' +
+                               ', '.join(sorted(required - set(files))))
+          package = json.loads(files['package.json'])
+          if package.get('version') != '1.3.0':
+              raise SystemExit('В ZIP ожидалась версия сайта 1.3.0.')
           for name, content in files.items():
               target = root / name
               target.parent.mkdir(parents=True, exist_ok=True)
               target.write_bytes(content)
 
           git('config', 'user.name', 'github-actions[bot]')
-          git(
-              'config',
-              'user.email',
-              '41898282+github-actions[bot]@users.noreply.github.com'
-          )
-
-          git(
-              '--literal-pathspecs',
-              'add',
-              '--force',
-              '--',
-              *files
-          )
-
-          staged = git('diff', '--cached', '--name-only')
-
+          git('config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com')
+          git('--literal-pathspecs', 'add', '--force', '--', *sorted(files))
+          staged = git('diff', '--cached', '--name-only').decode().strip()
           if staged:
-              git(
-                  'commit',
-                  '-m',
-                  'Распаковать полянку: все 49 файлов'
-              )
+              git('commit', '-m', 'Обновить полянку до версии 1.3.0')
 
-          # Ошибка отправки прерывает запуск.
+          # Ошибка push/fetch не игнорируется; force push не используется.
           git('push', 'origin', 'HEAD:refs/heads/main')
-
-          # Получаем состояние main с сервера после отправки.
-          git(
-              'fetch',
-              '--no-tags',
-              'origin',
-              'refs/heads/main'
-          )
-
+          git('fetch', '--no-tags', 'origin', 'refs/heads/main')
           commit = git('rev-parse', 'FETCH_HEAD').decode().strip()
-
-          # Проверяем файлы в полученной удалённой ветке.
           for name, content in files.items():
               remote = git('show', 'FETCH_HEAD:' + name)
+              if hashlib.sha256(remote).digest() != hashlib.sha256(content).digest():
+                  raise SystemExit('Файл не прошёл проверку в удалённой main: ' + name)
+              print('Проверено на GitHub:', name)
 
-              if (
-                  hashlib.sha256(remote).digest()
-                  != hashlib.sha256(content).digest()
-              ):
-                  raise SystemExit(
-                      'Проверка main не пройдена: ' + name
-                  )
-
-              print('Проверено в main:', name)
-
-          print(
-              'ГОТОВО: в удалённой ветке main '
-              'проверены все 49 файлов.'
-          )
+          print(f'ГОТОВО: {len(files)} файлов совпадают с ZIP в удалённой ветке main.')
           print('Коммит:', commit)
-
           repo = os.environ.get('GITHUB_REPOSITORY', '')
-          server = os.environ.get(
-              'GITHUB_SERVER_URL',
-              'https://github.com'
-          )
+          server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
           summary = os.environ.get('GITHUB_STEP_SUMMARY')
-
           if summary and repo:
               with open(summary, 'a', encoding='utf-8') as out:
-                  out.write(
-                      '## Все 49 файлов проверены в main\n\n'
-                  )
-                  out.write(
-                      f'[Открыть app]'
-                      f'({server}/{repo}/tree/main/app)\n\n'
-                  )
-                  out.write(
-                      f'[Открыть коммит]'
-                      f'({server}/{repo}/commit/{commit})\n'
-                  )
-          PY
+                  out.write(f'## Проверено файлов: {len(files)}\n\n')
+                  out.write(f'[Открыть п
