@@ -1,48 +1,17 @@
-# Сохранить как .github/workflows/unpack-polyanka.yml
-
-name: Распаковать обновление Полянки
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  unpack:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Получить репозиторий
-        uses: actions/checkout@v4
-
-      - name: Распаковать обновление
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          ZIP_FILE="polyanka-1.3.6.zip"
-
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::Не найден $ZIP_FILE в корне репозитория"
-            exit 1
-          fi
-
-          mkdir -p /tmp/polyanka-update
-          unzip -q "$ZIP_FILE" -d /tmp/polyanka-update
-
-          SOURCE_DIR="/tmp/polyanka-update/polyanka"
-          if [ ! -d "$SOURCE_DIR" ]; then
-            echo "::error::В архиве не найдена папка polyanka/"
-            exit 1
-          fi
-
-          rsync -a --exclude='.github/' "$SOURCE_DIR/" ./
-          rm -f "$ZIP_FILE"
-
       - name: Закоммитить обновление
         shell: bash
         run: |
           set -euo pipefail
 
-          git config user.name 
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "Изменений для коммита нет."
+            exit 0
+          fi
+
+          git commit -m "Обновление Полянки до версии 1.3.6"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
