@@ -11,6 +11,7 @@ export const categories = [
   "Суп",
   "Горячее",
   "Салат",
+  "Закуска",
   "Фастфуд",
   "Завтрак",
   "Выпечка",
@@ -33,6 +34,7 @@ export function emptyData() {
     birthdays: [],
     dishes: [],
     menu: [],
+    menuPeriod: { from: today(), to: today() },
     shopping: [],
     fridge: [],
     media: [],
@@ -91,7 +93,7 @@ export function demoData() {
       ingredients: [
         { name: "Тыква", qty: 400, unit: "г" },
         { name: "Сливки", qty: 100, unit: "мл" },
-        { name: "Лук", qty: 1, unit: "шт" },
+        { name: "Красный лук", qty: 80, unit: "г" },
       ],
       recipe:
         "Нарезать овощи, отварить до мягкости. Добавить сливки и измельчить блендером.",
@@ -126,9 +128,10 @@ export function demoData() {
       liked: true,
     },
   ];
+  d.menuPeriod = { from: day, to: day };
   d.menu = [
-    { id: "m1", date: day, dishId: "d1", portions: 2 },
-    { id: "m2", date: day, dishId: "d3", portions: 2 },
+    { id: "m1", dishId: "d1", portions: 2 },
+    { id: "m2", dishId: "d3", portions: 2 },
   ];
   d.shopping = [
     { id: "s1", name: "Хлеб", qty: 1, unit: "шт", done: false },
@@ -201,8 +204,43 @@ export function demoData() {
   ];
   return d;
 }
+export function migrateMenuPlan(source: any) {
+  const data = structuredClone(source || emptyData());
+  const menu = Array.isArray(data.menu) ? data.menu : [];
+  const dates = menu
+    .map((item: any) => item.date)
+    .filter(Boolean)
+    .sort();
+  const from = data.menuPeriod?.from || dates[0] || today();
+  const to = data.menuPeriod?.to || dates[dates.length - 1] || from;
+  const grouped = new Map<string, any>();
+  for (const item of menu) {
+    const key = String(item.dishId || item.id);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.portions =
+        Number(existing.portions || 0) + Number(item.portions || 0);
+      existing.prepared = existing.prepared && !!item.prepared;
+    } else {
+      const { date: _date, ...planItem } = item;
+      grouped.set(key, { ...planItem, portions: Number(item.portions || 1) });
+    }
+  }
+  data.menu = [...grouped.values()];
+  data.menuPeriod = { from, to };
+  return data;
+}
+
 export function normalize(s: string) {
   return s.toLowerCase().replaceAll("ё", "е").trim();
+}
+export function isWaterProduct(s: string) {
+  const name = normalize(s);
+  return (
+    name === "вода" ||
+    name.startsWith("вода ") ||
+    name.startsWith("питьевая вода")
+  );
 }
 export function ingredientMatch(name: string, query: string) {
   const n = normalize(name),
@@ -258,7 +296,8 @@ export function parseIngredients(text: string) {
             unit: m[3].trim(),
           }
         : { name: line.trim(), qty: "", unit: "" };
-    });
+    })
+    .filter((ingredient) => !isWaterProduct(ingredient.name));
 }
 export function parseRecipes(text: string) {
   const normalized = text.replace(/\r\n?/g, "\n");
@@ -356,12 +395,11 @@ export function parseRecipes(text: string) {
 }
 export function shoppingFor(data: any, from: string, to: string) {
   const map = new Map<string, any>();
-  for (const m of data.menu.filter(
-    (x: any) => x.date >= from && x.date <= to,
-  )) {
+  for (const m of data.menu) {
     const d = data.dishes.find((x: any) => x.id === m.dishId);
     if (!d) continue;
     for (const ing of d.ingredients) {
+      if (isWaterProduct(ing.name)) continue;
       let unit = normalize(ing.unit || "");
       let qty =
         ing.qty === ""
@@ -398,7 +436,9 @@ export function shoppingFor(data: any, from: string, to: string) {
   }
   return [
     ...map.values(),
-    ...data.shopping.filter((x: any) => !x.id.startsWith("auto:")),
+    ...data.shopping.filter(
+      (x: any) => !x.id.startsWith("auto:") && !isWaterProduct(x.name),
+    ),
   ];
 }
 export function validBackup(d: any) {

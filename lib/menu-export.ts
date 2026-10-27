@@ -1,204 +1,185 @@
 import { fmt } from "./data";
-// Canvas rendering avoids external capture services, network fonts and hidden UI controls.
+const order = [
+  "Салат",
+  "Суп",
+  "Горячее",
+  "Закуска",
+  "Фастфуд",
+  "Завтрак",
+  "Выпечка",
+  "Другое",
+];
+const water = (s: string) =>
+  /^(?:вода|питьевая вода|водопроводная вода)$/i.test(s.trim());
+
+// Canvas export contains only the designed menu content; no screen controls are captured.
 export async function createMenuPng(data: any, from: string, to: string) {
   await document.fonts.ready;
   const css = getComputedStyle(document.documentElement),
-    color = (key: string, fallback: string) =>
-      css.getPropertyValue(key).trim() || fallback;
-  const paper = color("--menu-paper", "#faf6e9"),
-    rule = color("--menu-rule", "#ded8bb"),
-    ink = color("--ink", "#354730"),
-    muted = color("--muted", "#848b75"),
-    sage = color("--forest-leaf", "#8fa277"),
-    gold = color("--forest-gold", "#c9b978");
+    get = (key: string, fallback: string) =>
+      css.getPropertyValue(key).trim() || fallback,
+    paper = get("--menu-paper", "#faf6e9"),
+    rule = get("--menu-rule", "#ded8bb"),
+    ink = get("--ink", "#354730"),
+    muted = get("--muted", "#848b75"),
+    sage = get("--forest-leaf", "#8fa277"),
+    gold = get("--forest-gold", "#c9b978");
   const canvas = document.createElement("canvas"),
     ctx = canvas.getContext("2d")!;
   canvas.width = 1200;
-  function wrap(text: string, max: number, font: string) {
-    ctx.font = font;
+  const font = (size: number) => `${size}px "Brand Pixel"`;
+  function wrap(text: string, width: number, size: number) {
+    ctx.font = font(size);
     const lines: string[] = [];
     let line = "";
-    for (const word of text.split(" ")) {
-      if (line && ctx.measureText(line + " " + word).width > max) {
+    for (const word of String(text).split(" ")) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > width) {
         lines.push(line);
         line = word;
-      } else line += (line ? " " : "") + word;
+      } else line = next;
     }
     if (line) lines.push(line);
     return lines;
   }
-  const menu = data.menu
-    .filter((m: any) => m.date >= from && m.date <= to)
-    .sort((a: any, b: any) => a.date.localeCompare(b.date));
-  const rows: any[] = [];
-  let lastDate = "";
-  let y = 390;
-  for (const m of menu) {
-    const d = data.dishes.find((x: any) => x.id === m.dishId);
-    if (m.date !== lastDate) {
-      rows.push({ type: "date", y, date: m.date });
-      y += 80;
-      lastDate = m.date;
+  const dishes = data.menu
+    .map((m: any, index: number) => ({
+      ...m,
+      index,
+      dish: data.dishes.find((d: any) => d.id === m.dishId),
+    }))
+    .sort((a: any, b: any) => {
+      const ai = order.indexOf(a.dish?.category || "Другое"),
+        bi = order.indexOf(b.dish?.category || "Другое");
+      return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi) || a.index - b.index;
+    });
+  const groups = order
+    .map((category) => ({
+      category,
+      items: dishes.filter(
+        (x: any) => (x.dish?.category || "Другое") === category,
+      ),
+    }))
+    .filter((x) => x.items.length);
+  const blocks: any[] = [];
+  let y = 395;
+  for (const group of groups) {
+    blocks.push({ type: "category", category: group.category, y });
+    y += 70;
+    for (const item of group.items) {
+      const ingredients = (item.dish?.ingredients || [])
+        .filter((i: any) => !water(i.name))
+        .map((i: any) => ({
+          name: wrap(i.name, 720, 24),
+          amount:
+            i.unit === "п.в."
+              ? "п.в."
+              : i.qty !== ""
+                ? `${fmt((Number(i.qty) * Number(item.portions)) / Number(item.dish?.portions || 1))} ${i.unit}`
+                : "не указано",
+        }));
+      const title = wrap(item.dish?.title || "Блюдо удалено", 820, 34);
+      const h =
+        106 +
+        title.length * 43 +
+        ingredients.reduce(
+          (n: number, i: any) => n + Math.max(1, i.name.length) * 35,
+          0,
+        );
+      blocks.push({ type: "dish", y, h, item, title, ingredients });
+      y += h + 15;
     }
-    const title = wrap(
-      d?.title || "Блюдо в корзине",
-      720,
-      '37px "Brand Pixel"',
-    );
-    const ingredients = (d?.ingredients || []).map((i: any) => ({
-      name: wrap(i.name, 730, '26px "Brand Pixel"'),
-      amount:
-        i.unit === "п.в."
-          ? "п.в."
-          : i.qty !== ""
-            ? fmt(
-                (Number(i.qty) * Number(m.portions)) / Number(d.portions || 1),
-              ) +
-              " " +
-              i.unit
-            : "не указано",
-    }));
-    const h =
-      111 +
-      title.length * 45 +
-      ingredients.reduce(
-        (h: any, i: any) => h + Math.max(1, i.name.length) * 39,
-        0,
-      );
-    rows.push({ type: "dish", y, h, m, d, title, ingredients });
-    y += h;
   }
-  canvas.height = Math.max(720, y + 140);
+  canvas.height = Math.max(720, y + 150);
   if (canvas.height > 16000)
-    throw Error(
-      "Для PNG выбери более короткий период: изображение получается слишком длинным.",
-    );
+    throw Error("Меню слишком большое для одного изображения.");
   ctx.fillStyle = paper;
-  ctx.fillRect(0, 0, 1200, canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.strokeStyle = rule;
   ctx.lineWidth = 2;
   ctx.strokeRect(29, 29, 1142, canvas.height - 58);
   ctx.strokeRect(43, 43, 1114, canvas.height - 86);
-  function text(
+  const text = (
     t: string,
     x: number,
     y: number,
-    font: string,
-    c = ink,
+    size: number,
+    color = ink,
     align: CanvasTextAlign = "left",
-  ) {
-    ctx.fillStyle = c;
-    ctx.font = font;
+  ) => {
+    ctx.fillStyle = color;
+    ctx.font = font(size);
     ctx.textAlign = align;
     ctx.fillText(t, x, y);
-  }
-  // Tiny pixel sprigs, deliberately quiet.
+  };
   function sprig(x: number, y: number) {
     ctx.fillStyle = sage;
-    ctx.fillRect(x, y, 6, 49);
+    ctx.fillRect(x, y, 6, 42);
     for (let i = 0; i < 3; i++) {
-      ctx.fillRect(x - 13 + i * 3, y + 12 + i * 11, 14 - i * 2, 5);
-      ctx.fillRect(x + 5, y + 6 + i * 11, 13 - i * 2, 5);
+      ctx.fillRect(x - 13 + i * 3, y + 12 + i * 10, 13 - i * 2, 5);
+      ctx.fillRect(x + 5, y + 5 + i * 10, 12 - i * 2, 5);
     }
     ctx.fillStyle = gold;
     ctx.fillRect(x - 4, y - 5, 14, 10);
   }
-  sprig(567, 85);
-  sprig(609, 104);
-  text(
-    "МАЛЕНЬКАЯ ДОМАШНЯЯ КУХНЯ",
-    600,
-    196,
-    '20px "Brand Pixel"',
-    muted,
-    "center",
-  );
-  text("Меню полянки", 600, 270, '65px "Brand Pixel"', ink, "center");
+  sprig(565, 85);
+  sprig(610, 100);
+  text("МАЛЕНЬКАЯ ДОМАШНЯЯ КУХНЯ", 600, 190, 20, muted, "center");
+  text("Меню полянки", 600, 268, 62, ink, "center");
   const label = (s: string) =>
     new Date(s + "T12:00:00").toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "long",
+      year: "numeric",
     });
-  text(
-    label(from) + (to > from ? " — " + label(to) : ""),
-    600,
-    320,
-    '26px "Brand Pixel"',
-    muted,
-    "center",
-  );
-  text("✧  ───  ✧", 600, 355, '22px "Brand Pixel"', gold, "center");
-  if (!menu.length)
+  text(`${label(from)} — ${label(to)}`, 600, 320, 24, muted, "center");
+  text("✧  ───  ✧", 600, 356, 22, gold, "center");
+  if (!dishes.length)
     text(
       "Здесь есть место для чего-нибудь вкусного.",
       600,
       480,
-      '27px "Brand Pixel"',
+      27,
       muted,
       "center",
     );
-  for (const r of rows) {
-    if (r.type === "date") {
-      text(
-        new Date(r.date + "T12:00:00").toLocaleDateString("ru-RU", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-        }),
-        100,
-        r.y + 35,
-        '30px "Brand Pixel"',
-        ink,
-      );
+  for (const b of blocks) {
+    if (b.type === "category") {
+      text(b.category.toUpperCase(), 95, b.y + 30, 27, sage);
       ctx.strokeStyle = rule;
       ctx.beginPath();
-      ctx.moveTo(100, r.y + 53);
-      ctx.lineTo(1100, r.y + 53);
+      ctx.moveTo(95, b.y + 45);
+      ctx.lineTo(1100, b.y + 45);
       ctx.stroke();
       continue;
     }
-    const course = r.d?.category || "Блюдо";
-    text(course.toUpperCase(), 100, r.y + 25, '19px "Brand Pixel"', sage);
-    r.title.forEach((line: string, i: number) =>
-      text(line, 100, r.y + 76 + i * 45, '37px "Brand Pixel"'),
+    const { item } = b;
+    const d = item.dish;
+    b.title.forEach((line: string, i: number) =>
+      text(line, 95, b.y + 40 + i * 43, 34),
     );
+    text(`${item.portions} порций`, 1095, b.y + 37, 22, sage, "right");
     const kcal =
-      r.d?.kcal !== "" && r.d?.kcal != null
-        ? (r.d.kcalEstimated ? "≈" : "") + String(r.d.kcal)
-        : "—";
-    text(kcal, 1090, r.y + 73, '38px "Brand Pixel"', sage, "right");
-    text("ккал / порц.", 1090, r.y + 99, '18px "Brand Pixel"', muted, "right");
-    const start = r.y + 86 + r.title.length * 45;
-    let ingredientY = start;
-    for (const ing of r.ingredients) {
+      d?.kcal !== "" && d?.kcal != null
+        ? `${d.kcalEstimated ? "≈" : ""}${d.kcal} ккал / порц.`
+        : "Калорийность не указана";
+    text(kcal, 1095, b.y + 67, 18, muted, "right");
+    let iy = b.y + 58 + b.title.length * 43;
+    for (const ing of b.ingredients) {
       ing.name.forEach((line: string, i: number) =>
-        text(line, 100, ingredientY + i * 39, '26px "Brand Pixel"', muted),
+        text(line, 120, iy + i * 35, 23, muted),
       );
-      text(ing.amount, 1090, ingredientY, '26px "Brand Pixel"', ink, "right");
-      ingredientY += Math.max(1, ing.name.length) * 39;
+      text(ing.amount, 1085, iy, 23, ink, "right");
+      iy += Math.max(1, ing.name.length) * 35;
     }
-    text(
-      r.m.portions + " порц. · граммовки на всё блюдо",
-      100,
-      r.y + r.h - 28,
-      '21px "Brand Pixel"',
-      muted,
-    );
     ctx.strokeStyle = rule;
-    ctx.setLineDash([5, 6]);
+    ctx.setLineDash([4, 6]);
     ctx.beginPath();
-    ctx.moveTo(100, r.y + r.h - 7);
-    ctx.lineTo(1100, r.y + r.h - 7);
+    ctx.moveTo(95, b.y + b.h);
+    ctx.lineTo(1100, b.y + b.h);
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  text(
-    "С заботой, твоя полянка",
-    600,
-    canvas.height - 75,
-    '24px "Brand Pixel"',
-    muted,
-    "center",
-  );
+  text("С заботой, твоя полянка", 600, canvas.height - 75, 23, muted, "center");
   return canvas.toDataURL("image/png");
 }

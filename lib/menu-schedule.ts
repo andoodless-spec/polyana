@@ -74,6 +74,20 @@ export function parseMenuSchedule(text: string) {
   return { schedule, scheduleErrors };
 }
 
+export function parseMenuPeriod(text: string) {
+  const match = text.match(
+    /^\s*Период меню\s*:\s*(\d{4}-\d{2}-\d{2})\s*(?:—|–|-|\bпо\b)\s*(\d{4}-\d{2}-\d{2})\s*$/im,
+  );
+  if (
+    !match ||
+    !validMenuDate(match[1]) ||
+    !validMenuDate(match[2]) ||
+    match[2] < match[1]
+  )
+    return null;
+  return { from: match[1], to: match[2] };
+}
+
 export function scheduleText(recipe: any) {
   return (
     recipe.scheduleText ??

@@ -123,7 +123,7 @@ console.log("calendar", (await dl).suggestedFilename());
 await nav("Кухонька");
 console.log("tabs", await p.locator(".kitchen-main-tabs").innerText());
 await expect(p.locator(".restaurant-menu")).toBeVisible();
-await expect(p.locator(".restaurant-ingredients").first()).toContainText("400");
+await expect(p.locator(".restaurant-ingredients").first()).toContainText("250 г");
 await p.screenshot({
   path: "test-artifacts/v2-menu-mobile.png",
   fullPage: true,
@@ -133,11 +133,12 @@ await expect(p.locator(".sub-tabs button").first()).toHaveText(
   "Разобрать текст",
 );
 await expect(p.getByLabel("Текст рецептов")).toBeVisible();
-await p.getByRole("button", { name: "Промпт для ИИ" }).click();
-await expect(p.getByLabel("Текст промпта меню")).toHaveValue(
-  /ПЯТЬ ОБЯЗАТЕЛЬНЫХ ВОПРОСОВ/,
-);
-await p.keyboard.press("Escape");
+await p.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+await p.getByRole("button", { name: "Скопировать промт для ИИ" }).click();
+await expect(p.locator(".toast")).toContainText("Промт скопирован");
+await expect
+  .poll(() => p.evaluate(() => navigator.clipboard.readText()))
+  .toContain("Период меню:");
 await p
   .getByLabel("Текст рецептов")
   .fill(
@@ -153,6 +154,8 @@ await p.getByRole("button", { name: "Сохранить всю подборку"
 await expect(
   p.getByRole("button", { name: "Первый суп", exact: true }),
 ).toBeVisible();
+await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
+await p.getByRole("button", { name: "Коллекция", exact: true }).click();
 await expect(
   p.getByRole("textbox", { name: "Поиск по продуктам" }),
 ).toHaveCount(0);

@@ -5704,3 +5704,76 @@ details p {
     transition: none;
   }
 }
+
+/* Simpler pantry list, text-driven recipe flips and phone save controls. */
+.pantry-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+.pantry-row {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.pantry-row .grow {
+  display: grid;
+  gap: 3px;
+}
+.pantry-row small {
+  color: var(--muted);
+}
+.menu-edit-footer {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 8px;
+}
+.menu-edit-footer .btn {
+  min-width: 180px;
+  justify-content: center;
+}
+.pixel-mushroom-icon {
+  width: 23px;
+  height: 23px;
+  image-rendering: pixelated;
+}
+.gallery-save {
+  opacity: 1;
+}
+.recipe-back-title {
+  width: fit-content;
+  text-align: left;
+}
+.recipe-back-text,
+.collection-recipe-text {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+.recipe-back-text {
+  cursor: pointer;
+}
+.collection-recipe-text {
+  cursor: pointer;
+}
+.import-period {
+  margin: 12px 0;
+}
+.curated-art-note {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  padding: 10px 0;
+}

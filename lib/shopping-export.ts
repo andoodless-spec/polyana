@@ -81,6 +81,7 @@ export async function createShoppingPng(
     new Date(s + "T12:00:00").toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "long",
+      year: "numeric",
     });
   text(
     label(from) + (to > from ? " — " + label(to) : ""),

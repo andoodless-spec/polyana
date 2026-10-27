@@ -1,5 +1,6 @@
 import { normalize, uid } from "./data";
-import { parseMenuSchedule, scheduleText } from "./menu-schedule";
+import { validMenuDate } from "./menu-schedule";
+
 export function recipeIdentity(r: any) {
   return JSON.stringify({
     title: normalize(r.title || ""),
@@ -16,14 +17,27 @@ export function recipeIdentity(r: any) {
     notes: r.notes || "",
   });
 }
-// Caller supplies a draft (e.g. a structuredClone), so validation finishes before any mutation.
+
 export function applyRecipeImport(
   d: any,
   recipes: any[],
-  options: { addToMenu: boolean; replaceDates: boolean },
+  options: {
+    addToMenu: boolean;
+    replaceMenu?: boolean;
+    period?: { from: string; to: string };
+  },
   makeId = uid,
 ) {
   if (!recipes.length) throw Error("Подборка пуста.");
+  const period = options.period || d.menuPeriod;
+  if (
+    options.addToMenu &&
+    (!period ||
+      !validMenuDate(period.from) ||
+      !validMenuDate(period.to) ||
+      period.to < period.from)
+  )
+    throw Error("Укажи корректный общий период меню: с какой даты по какую.");
   const prepared = recipes.map((r) => {
     if (
       !r.title?.trim() ||
@@ -41,28 +55,18 @@ export function applyRecipeImport(
       throw Error(
         "Проверь названия, порции (1–1000), калории и количества продуктов.",
       );
-    const plan = parseMenuSchedule(scheduleText(r));
-    if (plan.scheduleErrors.length)
-      throw Error(
-        "Есть неверные строки «В меню». Используй ГГГГ-ММ-ДД | число порций.",
-      );
     return {
       ...r,
       portions: Number(r.portions),
       kcal: r.kcal === "" ? "" : Number(r.kcal),
-      ...plan,
     };
   });
-  const dates = [
-    ...new Set(prepared.flatMap((r) => r.schedule.map((p) => p.date))),
-  ].sort();
   let removed = 0,
     added = 0,
     created = 0,
     reused = 0;
-  if (options.addToMenu && options.replaceDates && dates.length) {
-    const replace = new Set(dates);
-    const old = d.menu.filter((m: any) => replace.has(m.date));
+  if (options.addToMenu && options.replaceMenu) {
+    const old = d.menu.slice();
     removed = old.length;
     d.trash.unshift(
       ...old.map((item: any) => ({
@@ -72,8 +76,9 @@ export function applyRecipeImport(
         deletedAt: new Date().toISOString(),
       })),
     );
-    d.menu = d.menu.filter((m: any) => !replace.has(m.date));
+    d.menu = [];
   }
+  if (options.addToMenu) d.menuPeriod = { ...period };
   const keys = new Map(d.dishes.map((r: any) => [recipeIdentity(r), r]));
   for (const r of prepared) {
     const key = recipeIdentity(r);
@@ -92,34 +97,21 @@ export function applyRecipeImport(
       created++;
     } else {
       reused++;
-      // Keep provenance when an identical recipe arrives with another dated plan.
       if (
         r.source &&
         r.source !== dish.source &&
         !(dish.sourceHistory || []).includes(r.source)
-      ) {
+      )
         dish.sourceHistory = [...(dish.sourceHistory || []), r.source];
-      }
     }
-    if (options.addToMenu)
-      for (const p of r.schedule) {
-        if (
-          d.menu.some(
-            (m: any) =>
-              m.dishId === dish.id &&
-              m.date === p.date &&
-              Number(m.portions) === p.portions,
-          )
-        )
-          continue;
-        d.menu.push({
-          id: makeId(),
-          date: p.date,
-          dishId: dish.id,
-          portions: p.portions,
-        });
+    if (options.addToMenu) {
+      const existing = d.menu.find((m: any) => m.dishId === dish.id);
+      if (existing) existing.portions = r.portions;
+      else {
+        d.menu.push({ id: makeId(), dishId: dish.id, portions: r.portions });
         added++;
       }
+    }
   }
-  return { created, reused, added, removed, dates };
+  return { created, reused, added, removed, period };
 }

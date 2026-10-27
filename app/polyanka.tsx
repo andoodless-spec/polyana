@@ -42,7 +42,6 @@ import {
   ArrowDown,
   Eye,
   EyeOff,
-  Info,
   RotateCcw,
   Monitor,
   CheckCheck,
@@ -65,11 +64,12 @@ import {
   parseIngredients,
   shoppingFor,
   validBackup,
+  migrateMenuPlan,
   fmt,
   nextBirthday,
 } from "@/lib/data";
 import { Meadow, Sprout, ForestDetail } from "./art";
-import { ArtPicker, CuratedArt, faviconData } from "@/components/curated-art";
+import { CuratedArt, faviconData } from "@/components/curated-art";
 import { Field, Empty, Leaves } from "@/components/ui";
 import { Dialog } from "@/components/editors";
 import {
@@ -79,11 +79,10 @@ import {
   BirthdayList,
 } from "@/components/widgets";
 import { createShoppingPng } from "@/lib/shopping-export";
-import { parseMenuSchedule, scheduleText } from "@/lib/menu-schedule";
+import { parseMenuPeriod } from "@/lib/menu-schedule";
 import { RECIPE_PROMPT } from "@/lib/recipe-prompt";
 import { applyRecipeImport } from "@/lib/recipe-import";
 import ShoppingSheet from "@/components/shopping-sheet";
-import FridgeShelves from "@/components/fridge-shelves";
 import { ShelfInformation } from "@/components/media-jacket";
 import { createMenuPng } from "@/lib/menu-export";
 import Journal from "@/components/journal";
@@ -100,6 +99,26 @@ const dateLabel = (s: string) =>
     day: "numeric",
     month: "long",
   });
+const menuDateLabel = (s: string) =>
+  new Date(s + "T12:00:00").toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+function PixelMushroom() {
+  return (
+    <svg
+      className="pixel-mushroom-icon"
+      viewBox="0 0 32 32"
+      aria-hidden="true"
+      shapeRendering="crispEdges"
+    >
+      <path d="M4 15V11h4V7h4V4h8v3h4v4h4v4H4z" fill="currentColor" />
+      <path d="M10 15h12v4h-3v8h-6v-8h-3z" fill="currentColor" />
+      <path d="M10 11h3v3h-3zm9-3h3v3h-3zm5 5h3v2h-3z" fill="var(--surface)" />
+    </svg>
+  );
+}
 export default function Polyanka() {
   const [data, setData] = useState<any>(emptyData),
     [ready, setReady] = useState(false),
@@ -109,7 +128,7 @@ export default function Polyanka() {
     [importText, setImportText] = useState(""),
     [parsedRecipes, setParsedRecipes] = useState<any[]>([]),
     [addImportedMenu, setAddImportedMenu] = useState(true),
-    [replaceImportedDates, setReplaceImportedDates] = useState(false),
+    [replaceImportedMenu, setReplaceImportedMenu] = useState(false),
     [shelfType, setShelfType] = useState("Все"),
     [settings, setSettings] = useState(""),
     [modal, setModal] = useState<any>(null),
@@ -119,6 +138,7 @@ export default function Polyanka() {
     [homeFood, setHomeFood] = useState("menu"),
     [mealDay, setMealDay] = useState(today()),
     [menuTo, setMenuTo] = useState(today()),
+    [menuEditing, setMenuEditing] = useState(false),
     [query, setQuery] = useState(""),
     [foodQuery, setFoodQuery] = useState(""),
     [foodExclude, setFoodExclude] = useState(""),
@@ -186,6 +206,26 @@ export default function Polyanka() {
   function help(text: string) {
     setModal({ type: "help", text });
   }
+  async function copyRecipePrompt() {
+    try {
+      await navigator.clipboard.writeText(RECIPE_PROMPT);
+      tell("Промт скопирован — можно вставить его во внешний ИИ");
+    } catch {
+      const area = document.createElement("textarea");
+      area.value = RECIPE_PROMPT;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const copied = document.execCommand("copy");
+      area.remove();
+      tell(
+        copied
+          ? "Промт скопирован — можно вставить его во внешний ИИ"
+          : "Не удалось скопировать промт",
+      );
+    }
+  }
   function H({ text }: { text: string }) {
     return (
       <button
@@ -212,10 +252,16 @@ export default function Polyanka() {
   function readDemo() {
     try {
       const s = JSON.parse(localStorage.getItem("polyanka-demo") || "null");
-      return validBackup(s) ? s : demoData();
+      return migrateMenuPlan(validBackup(s) ? s : demoData());
     } catch {
-      return demoData();
+      return migrateMenuPlan(demoData());
     }
+  }
+  function loadAppData(source: any) {
+    const next = migrateMenuPlan(source);
+    setData(next);
+    setMealDay(next.menuPeriod.from);
+    setMenuTo(next.menuPeriod.to);
   }
   useEffect(() => {
     const m = window.matchMedia("(prefers-color-scheme: dark)");
@@ -230,14 +276,14 @@ export default function Polyanka() {
           const r = await fetch("/api/state");
           if (!r.ok) throw Error();
           const s = await r.json();
-          let initial = s.data || emptyData();
+          let initial = migrateMenuPlan(s.data || emptyData());
           const key = "polyanka-account-" + a.user.id;
           let recovered = false;
           let baseVersion = s.version;
           try {
             const pending = JSON.parse(localStorage.getItem(key) || "null");
             if (pending?.pending && validBackup(pending.data)) {
-              initial = pending.data;
+              initial = migrateMenuPlan(pending.data);
               baseVersion = pending.version;
               needsSync.current = true;
               recovered = true;
@@ -248,7 +294,7 @@ export default function Polyanka() {
             }
           } catch {}
           setUser(a.user);
-          setData(initial);
+          loadAppData(initial);
           version.current = baseVersion;
           lastSaved.current = JSON.stringify(s.data || emptyData());
           cloudReady.current = true;
@@ -258,9 +304,9 @@ export default function Polyanka() {
                 ? "Восстановлены несохранённые правки"
                 : "Всё сохранено в облаке",
             );
-        } else setData(readDemo());
+        } else loadAppData(readDemo());
       } catch {
-        setData(readDemo());
+        loadAppData(readDemo());
         setSync("Облако недоступно · открыт деморежим");
       }
       hydrated.current = true;
@@ -372,12 +418,12 @@ export default function Polyanka() {
       const s = await r.json();
       if (!force && (revision.current !== rev || needsSync.current)) return;
       if (force || s.version !== version.current) {
-        const d = s.data || emptyData();
+        const d = migrateMenuPlan(s.data || emptyData());
         version.current = s.version;
         lastSaved.current = JSON.stringify(d);
         needsSync.current = false;
         conflict.current = false;
-        setData(d);
+        loadAppData(d);
         setSync("Всё сохранено в облаке");
         if (force) tell("Загружена облачная версия");
       }
@@ -405,7 +451,7 @@ export default function Polyanka() {
       : "normal";
   }, [night, data.settings.theme, data.settings.reduceMotion]);
   useEffect(() => {
-    const href = faviconData(data.settings.faviconArt || "leaf");
+    const href = faviconData();
     let link = document.querySelector<HTMLLinkElement>(
       'link[data-polyanka-favicon="true"]',
     );
@@ -420,7 +466,7 @@ export default function Polyanka() {
     return () => {
       link?.remove();
     };
-  }, [data.settings.faviconArt]);
+  }, []);
   function go(p: string) {
     setPage(p);
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -467,6 +513,17 @@ export default function Polyanka() {
     });
     setModal(null);
     tell("Сохранено");
+  }
+  function saveMenuItem(item: any) {
+    mutate((d) => {
+      const existing = d.menu.find(
+        (x: any) => x.id === item.id || (!item.id && x.dishId === item.dishId),
+      );
+      if (existing) Object.assign(existing, item, { id: existing.id });
+      else d.menu.push({ ...item, id: uid() });
+    });
+    setModal(null);
+    tell("Меню сохранено");
   }
   function addTask(e: any) {
     e.preventDefault();
@@ -530,6 +587,25 @@ export default function Polyanka() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
+  async function saveImageToPhone(dataUrl: string, name: string) {
+    const blob = await fetch(dataUrl).then((r) => r.blob());
+    const file = new File([blob], name, { type: "image/png" });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: "Полянка" });
+        tell(
+          "Открой «Сохранить изображение» в меню телефона, чтобы добавить его в галерею",
+        );
+      } catch (error: any) {
+        if (error?.name !== "AbortError") throw error;
+      }
+      return;
+    }
+    download(URL.createObjectURL(blob), name);
+    tell(
+      "Изображение скачано. На телефоне выбери «Сохранить в Фото/Галерею» из меню файла",
+    );
+  }
   async function importBackup(file: File) {
     try {
       const v = JSON.parse(await file.text());
@@ -574,15 +650,14 @@ export default function Polyanka() {
   async function exportPng(kind: string) {
     if (kind === "shopping") {
       try {
-        download(
+        await saveImageToPhone(
           await createShoppingPng(
             shopping,
             mealDay,
             menuTo < mealDay ? mealDay : menuTo,
           ),
-          "shopping-" + today() + ".png",
+          "polyanka-pokupki-" + today() + ".png",
         );
-        tell("Список покупок в PNG готов");
       } catch (e: any) {
         tell(e.message || "Не удалось создать изображение");
       }
@@ -591,90 +666,20 @@ export default function Polyanka() {
 
     if (kind === "menu") {
       try {
-        download(
+        await saveImageToPhone(
           await createMenuPng(
             data,
             mealDay,
             menuTo < mealDay ? mealDay : menuTo,
           ),
-          "menu-" + today() + ".png",
+          "polyanka-menyu-" + today() + ".png",
         );
-        tell("Меню в PNG готово");
       } catch (e: any) {
         tell(e.message || "Не удалось создать изображение");
       }
       return;
     }
-    await document.fonts.ready;
-    const rows =
-      kind === "shopping"
-        ? shopping.map(
-            (s: any) =>
-              `${s.done ? "✓  " : s.have ? "Есть дома · " : "□  "}${s.name}${s.unit === "п.в." ? " — п.в." : s.qty !== "" ? " — " + fmt(s.qty) + " " + s.unit : ""}`,
-          )
-        : data.menu
-            .filter(
-              (m: any) =>
-                m.date >= mealDay &&
-                m.date <= (menuTo < mealDay ? mealDay : menuTo),
-            )
-            .flatMap((m: any) => {
-              const d = data.dishes.find((d: any) => d.id === m.dishId);
-              return [
-                `${dateLabel(m.date)} · ${d?.title || "Блюдо удалено"} · ${m.portions} порц.`,
-                d?.kcal !== "" && d?.kcal != null
-                  ? `${d.kcal} ккал на порцию`
-                  : "Калорийность не указана",
-                ...(d?.ingredients || []).map(
-                  (i: any) =>
-                    `${i.name}${i.unit === "п.в." ? " — п.в." : i.qty !== "" ? " — " + fmt((Number(i.qty) * Number(m.portions)) / Number(d.portions || 1)) + " " + i.unit : ""}`,
-                ),
-                "",
-              ];
-            });
-    const c = document.createElement("canvas"),
-      ctx = c.getContext("2d")!;
-    c.width = 1200;
-    ctx.font = '30px "Brand Pixel"';
-    const wrapped: string[] = [];
-    for (const row of rows) {
-      let line = "";
-      for (const w of row.split(" ")) {
-        if (ctx.measureText(line + w).width > 1000) {
-          wrapped.push(line);
-          line = "";
-        }
-        line += w + " ";
-      }
-      wrapped.push(line);
-    }
-    c.height = 340 + Math.max(1, wrapped.length) * 62;
-    ctx.fillStyle = "#f5f4e9";
-    ctx.fillRect(0, 0, c.width, c.height);
-    ctx.fillStyle = "#6f865d";
-    ctx.fillRect(65, 65, 18, 18);
-    ctx.font = '28px "Brand Pixel"';
-    ctx.fillText("СВОЯ ПОЛЯНКА", 103, 84);
-    ctx.fillStyle = "#374c35";
-    ctx.font = '54px "Brand Pixel"';
-    ctx.fillText(kind === "shopping" ? "Список покупок" : "Наше меню", 65, 165);
-    ctx.font = '25px "Brand Pixel"';
-    ctx.fillStyle = "#7b826e";
-    ctx.fillText(
-      dateLabel(mealDay) + (menuTo > mealDay ? " — " + dateLabel(menuTo) : ""),
-      65,
-      210,
-    );
-    ctx.font = '30px "Brand Pixel"';
-    ctx.fillStyle = "#374c35";
-    (wrapped.length ? wrapped : ["Пока пусто — и это нормально."]).forEach(
-      (s, i) => ctx.fillText(s, 65, 290 + i * 62),
-    );
-    ctx.font = '21px "Brand Pixel"';
-    ctx.fillStyle = "#7b826e";
-    ctx.fillText("Потихоньку, в своём темпе.  ✧", 65, c.height - 35);
-    download(c.toDataURL("image/png"), kind + "-" + today() + ".png");
-    tell("PNG готов");
+    return;
   }
   async function auth(e: any) {
     e.preventDefault();
@@ -700,7 +705,7 @@ export default function Polyanka() {
       cloudReady.current = true;
       needsSync.current = false;
       conflict.current = false;
-      setData(fresh);
+      loadAppData(fresh);
       setUser(b.user);
       setSync("Всё сохранено в облаке");
       setModal(null);
@@ -729,7 +734,7 @@ export default function Polyanka() {
       cloudReady.current = false;
       if (user) localStorage.removeItem("polyanka-account-" + user.id);
       setUser(null);
-      setData(readDemo());
+      loadAppData(readDemo());
       setSync("Локальный деморежим");
       setSettings("");
       tell("Вы вышли из аккаунта");
@@ -747,39 +752,29 @@ export default function Polyanka() {
     setAllIngredients(false);
     setDishFlips({ [d.id]: true });
   }
-  const importedDates = [
-    ...new Set(
-      parsedRecipes.flatMap((r) => (r.schedule || []).map((p: any) => p.date)),
-    ),
-  ].sort() as string[];
-  const importedPlacements = parsedRecipes.reduce(
-    (n, r) => n + (r.schedule || []).length,
-    0,
-  );
   function saveParsedRecipes() {
     try {
       const next = structuredClone(data);
+      const period = { from: mealDay, to: menuTo < mealDay ? mealDay : menuTo };
       const result = applyRecipeImport(next, parsedRecipes, {
         addToMenu: addImportedMenu,
-        replaceDates: replaceImportedDates,
+        replaceMenu: replaceImportedMenu,
+        period,
       });
       mutate((d) => {
         d.dishes = next.dishes;
         d.menu = next.menu;
         d.trash = next.trash;
+        d.menuPeriod = next.menuPeriod;
       });
       tell(
-        `Сохранено: ${result.created} новых блюд${result.reused ? ", " + result.reused + " повторно использовано" : ""}${result.added ? ", " + result.added + " подач в меню" : ""}`,
+        `Сохранено: ${result.created} новых блюд${result.reused ? ", " + result.reused + " повторно использовано" : ""}${result.added ? ", " + result.added + " блюд добавлено в меню" : ""}`,
       );
-      if (addImportedMenu && result.dates.length) {
-        setMealDay(result.dates[0]);
-        setMenuTo(result.dates[result.dates.length - 1]);
-        setKitchen("menu");
-      } else setKitchen("dishes");
+      setKitchen(addImportedMenu ? "menu" : "dishes");
       setParsedRecipes([]);
       setImportText("");
       setDraft({});
-      setReplaceImportedDates(false);
+      setReplaceImportedMenu(false);
     } catch (e: any) {
       tell(e.message || "Не удалось сохранить подборку");
     }
@@ -871,7 +866,7 @@ export default function Polyanka() {
     open("prepared", { menuId: m.id, title: dish.title, usage });
   }
   function addToMenu(d: any) {
-    open("menu", { date: mealDay, dishId: d.id, portions: d.portions || 1 });
+    open("menu", { dishId: d.id, portions: d.portions || 1 });
   }
   const pinned = data.notes.filter(
     (n: any) => n.pinned && n.kind !== "troubles",
@@ -1014,8 +1009,19 @@ export default function Polyanka() {
             {homeFood === "menu" ? (
               <>
                 <div className="home-meals">
-                  {data.menu
-                    .filter((m: any) => m.date === today())
+                  {[...data.menu]
+                    .sort((a: any, b: any) => {
+                      const order = ["Салат", "Суп", "Горячее", "Закуска"];
+                      const ca = order.indexOf(
+                        data.dishes.find((d: any) => d.id === a.dishId)
+                          ?.category,
+                      );
+                      const cb = order.indexOf(
+                        data.dishes.find((d: any) => d.id === b.dishId)
+                          ?.category,
+                      );
+                      return (ca < 0 ? 99 : ca) - (cb < 0 ? 99 : cb);
+                    })
                     .map((m: any) => {
                       const d = data.dishes.find((x: any) => x.id === m.dishId);
                       return (
@@ -1040,8 +1046,8 @@ export default function Polyanka() {
                       );
                     })}
                 </div>
-                {!data.menu.some((m: any) => m.date === today()) && (
-                  <p className="muted">На сегодня меню пока свободно.</p>
+                {!data.menu.length && (
+                  <p className="muted">Меню пока не заполнено.</p>
                 )}
                 <button
                   className="text-link"
@@ -1226,7 +1232,7 @@ export default function Polyanka() {
                 </div>
                 <CuratedArt
                   slot="headerArt"
-                  value={data.settings.headerArt || "meadow"}
+                  value="meadow"
                   className="curated-meadow"
                 />
                 <span className="hero-caption">
@@ -1544,16 +1550,8 @@ export default function Polyanka() {
                                 <span className="eyebrow">
                                   СПОСОБ ПРИГОТОВЛЕНИЯ
                                 </span>
-                                <h3>{d.title}</h3>
-                                <p className="preserve">
-                                  {d.recipe?.trim() ||
-                                    "Способ приготовления пока не добавлен."}
-                                </p>
-                                {d.notes && (
-                                  <p className="preserve muted">{d.notes}</p>
-                                )}
                                 <button
-                                  className="text-link"
+                                  className="dish-title collection-back-title"
                                   onClick={() =>
                                     setDishFlips((old) => ({
                                       ...old,
@@ -1561,7 +1559,20 @@ export default function Polyanka() {
                                     }))
                                   }
                                 >
-                                  Вернуться к блюду
+                                  {d.title}
+                                </button>
+                                <button
+                                  className="preserve collection-recipe-text"
+                                  onClick={() =>
+                                    setDishFlips((old) => ({
+                                      ...old,
+                                      [d.id]: false,
+                                    }))
+                                  }
+                                >
+                                  {d.recipe?.trim() ||
+                                    "Способ приготовления пока не добавлен."}
+                                  {d.notes ? "\n\n" + d.notes : ""}
                                 </button>
                               </div>
                             </div>
@@ -1663,60 +1674,80 @@ export default function Polyanka() {
                 <>
                   <div className="toolbar">
                     <div className="row">
-                      <Field label="С даты">
+                      <Field label="Период с">
                         <input
                           type="date"
                           value={mealDay}
                           onChange={(e) => {
-                            setMealDay(e.target.value);
-                            if (menuTo < e.target.value)
-                              setMenuTo(e.target.value);
+                            const from = e.target.value,
+                              to = menuTo < from ? from : menuTo;
+                            setMealDay(from);
+                            setMenuTo(to);
+                            mutate((d) => (d.menuPeriod = { from, to }));
                           }}
                         />
                       </Field>
-                      <Field label="По дату">
+                      <Field label="по">
                         <input
                           type="date"
                           min={mealDay}
                           value={menuTo}
-                          onChange={(e) => setMenuTo(e.target.value)}
+                          onChange={(e) => {
+                            setMenuTo(e.target.value);
+                            mutate(
+                              (d) =>
+                                (d.menuPeriod = {
+                                  from: mealDay,
+                                  to: e.target.value,
+                                }),
+                            );
+                          }}
                         />
                       </Field>
                     </div>
                     <div className="row">
+                      <H
+                        text={
+                          kitchen === "menu"
+                            ? "Период общий для всего меню, блюда не привязаны к отдельным датам. Ингредиенты рассчитаны на число порций в карточке."
+                            : "Список покупок собран по общему меню и количеству порций. Отметки «Куплено» и «Есть дома» исключают продукт из остатка."
+                        }
+                      />
                       <button
-                        className="btn soft"
+                        className="help gallery-save"
+                        aria-label={
+                          kitchen === "menu"
+                            ? "Сохранить меню в галерею"
+                            : "Сохранить список продуктов в галерею"
+                        }
+                        title={
+                          kitchen === "menu"
+                            ? "Сохранить меню в галерею"
+                            : "Сохранить список продуктов в галерею"
+                        }
                         onClick={() => exportPng(kitchen)}
                       >
-                        <Download size={16} /> В PNG
+                        <PixelMushroom />
                       </button>
-                      {kitchen === "menu" && (
+                      {kitchen === "menu" && menuEditing && (
                         <button
                           className="btn primary"
                           onClick={() =>
                             open("menu", {
-                              date: mealDay,
                               dishId: data.dishes[0]?.id || "",
-                              portions: 1,
+                              portions: data.dishes[0]?.portions || 1,
                             })
                           }
                         >
-                          <Plus size={16} /> В меню
+                          <Plus size={16} /> Добавить блюдо
                         </button>
                       )}
-                      <H
-                        text={
-                          kitchen === "menu"
-                            ? "Выбери период. Добавляй блюда, редактируй дату и порции. Стрелками меняй порядок. Продукты автоматически собираются в покупках."
-                            : "Галочка означает «Куплено». «Есть дома» — продукт уже есть, покупать не нужно. Количество берётся из меню за выбранный период. Можно дописать свои продукты."
-                        }
-                      />
                     </div>
                   </div>
                   {kitchen === "shopping" ? (
                     <ShoppingSheet
                       shoppingProps={shoppingProps}
-                      artwork={data.settings.shoppingArt || "fern"}
+                      artwork="fern"
                       from={mealDay}
                       to={menuTo < mealDay ? mealDay : menuTo}
                       onClear={() => {
@@ -1734,29 +1765,55 @@ export default function Polyanka() {
                       }}
                     />
                   ) : (
-                    <RestaurantMenu
-                      data={data}
-                      artwork={data.settings.menuArt || "flowers"}
-                      from={mealDay}
-                      to={menuTo < mealDay ? mealDay : menuTo}
-                      onOpen={openDish}
-                      onEdit={(m: any) => open("menu", m)}
-                      onDelete={(m: any) => remove("menu", m.id)}
-                      onPrepare={prepareMeal}
-                      onMove={(m: any, delta: number) =>
-                        mutate((d) => {
-                          const filtered = d.menu.filter(
-                              (x: any) => x.date === m.date,
-                            ),
-                            n = filtered.findIndex((x: any) => x.id === m.id),
-                            other = filtered[n + delta];
-                          if (!other) return;
-                          const i = d.menu.findIndex((x: any) => x.id === m.id),
-                            j = d.menu.findIndex((x: any) => x.id === other.id);
-                          [d.menu[i], d.menu[j]] = [d.menu[j], d.menu[i]];
-                        })
-                      }
-                    />
+                    <>
+                      <RestaurantMenu
+                        data={data}
+                        from={mealDay}
+                        to={menuTo < mealDay ? mealDay : menuTo}
+                        editing={menuEditing}
+                        onEdit={(m: any) => open("menu", m)}
+                        onDelete={(m: any) => remove("menu", m.id)}
+                        onPrepare={prepareMeal}
+                        onMove={(m: any, delta: number) =>
+                          mutate((d) => {
+                            const dish = d.dishes.find(
+                              (x: any) => x.id === m.dishId,
+                            );
+                            const group = d.menu.filter(
+                              (x: any) =>
+                                d.dishes.find(
+                                  (item: any) => item.id === x.dishId,
+                                )?.category === dish?.category,
+                            );
+                            const n = group.findIndex(
+                                (x: any) => x.id === m.id,
+                              ),
+                              other = group[n + delta];
+                            if (!other) return;
+                            const i = d.menu.findIndex(
+                                (x: any) => x.id === m.id,
+                              ),
+                              j = d.menu.findIndex(
+                                (x: any) => x.id === other.id,
+                              );
+                            [d.menu[i], d.menu[j]] = [d.menu[j], d.menu[i]];
+                          })
+                        }
+                      />
+                      <div className="menu-edit-footer">
+                        <button
+                          className={menuEditing ? "btn primary" : "btn soft"}
+                          onClick={() => setMenuEditing(!menuEditing)}
+                        >
+                          {menuEditing ? (
+                            <Check size={16} />
+                          ) : (
+                            <Pencil size={15} />
+                          )}
+                          {menuEditing ? "Готово" : "Редактировать"}
+                        </button>
+                      </div>
+                    </>
                   )}
                 </>
               )}
@@ -1776,14 +1833,39 @@ export default function Polyanka() {
                       <Plus size={16} /> Добавить продукт
                     </button>
                   </div>
-                  <FridgeShelves
-                    items={data.fridge}
-                    onEdit={(f: any) => open("fridge", f)}
-                    onRemove={(f: any) => remove("fridge", f.id)}
-                    onAdd={() =>
-                      open("fridge", { name: "", qty: "", unit: "г" })
-                    }
-                  />
+                  <div className="pantry-list">
+                    {data.fridge.length ? (
+                      data.fridge.map((item: any) => (
+                        <div className="pantry-row" key={item.id}>
+                          <div className="grow">
+                            <strong>{item.name}</strong>
+                            <small>
+                              {item.qty !== ""
+                                ? fmt(item.qty) +
+                                  (item.unit ? " " + item.unit : "")
+                                : "Количество не указано"}
+                            </small>
+                          </div>
+                          <button
+                            className="icon-btn"
+                            aria-label={"Изменить " + item.name}
+                            onClick={() => open("fridge", item)}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            className="icon-btn danger"
+                            aria-label={"Удалить " + item.name}
+                            onClick={() => remove("fridge", item.id)}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="muted">Пока ничего не записано.</p>
+                    )}
+                  </div>
                 </>
               )}
               {kitchen === "import" && (
@@ -1792,16 +1874,16 @@ export default function Polyanka() {
                     <h2>Из текста — в твою коллекцию</h2>
                     <button
                       className="help"
-                      aria-label="Промпт для ИИ"
-                      title="Промпт для ИИ"
-                      onClick={() => setModal({ type: "recipePrompt" })}
+                      aria-label="Скопировать промт для ИИ"
+                      title="Скопировать промт для ИИ"
+                      onClick={copyRecipePrompt}
                     >
-                      <Info size={18} />
+                      <Leaf size={18} />
                     </button>
                   </div>
                   <p className="muted">
                     Готовое меню от твоего ИИ или свои рецепты. Проверим блюда,
-                    порции и даты — сайт сам ничего не придумывает.
+                    порции и общий период — сайт сам ничего не придумывает.
                   </p>
                   <textarea
                     rows={12}
@@ -1813,7 +1895,7 @@ export default function Polyanka() {
                     onChange={(e) => {
                       setImportText(e.target.value);
                       setParsedRecipes([]);
-                      setReplaceImportedDates(false);
+                      setReplaceImportedMenu(false);
                       setDraft((d: any) => ({ ...d, importReviewed: false }));
                     }}
                   />
@@ -1822,6 +1904,12 @@ export default function Polyanka() {
                       className="btn primary"
                       disabled={!importText.trim()}
                       onClick={() => {
+                        const period = parseMenuPeriod(importText);
+                        if (period) {
+                          setMealDay(period.from);
+                          setMenuTo(period.to);
+                          mutate((d) => (d.menuPeriod = period));
+                        }
                         const parsed = parseRecipes(importText);
                         setParsedRecipes(parsed);
                         setDraft((d: any) => ({ ...d, importReviewed: false }));
@@ -1911,26 +1999,6 @@ export default function Polyanka() {
                             />{" "}
                             Калорийность приблизительная
                           </label>
-                          <Field label="В меню: ГГГГ-ММ-ДД | порции на этот день">
-                            <textarea
-                              aria-label={"Даты меню рецепта " + (i + 1)}
-                              rows={3}
-                              value={scheduleText(d)}
-                              placeholder="2026-11-02 | 2"
-                              onChange={(e) =>
-                                updateParsed(i, {
-                                  scheduleText: e.target.value,
-                                  ...parseMenuSchedule(e.target.value),
-                                })
-                              }
-                            />
-                          </Field>
-                          {d.scheduleErrors?.length > 0 && (
-                            <p className="import-warning">
-                              Неверные строки: {d.scheduleErrors.join("; ")}.
-                              Проверь дату и число порций.
-                            </p>
-                          )}
                           <Field label="Продукт | количество | единица">
                             <textarea
                               rows={4}
@@ -1990,57 +2058,78 @@ export default function Polyanka() {
                         </details>
                       ))}
                       <div className="import-menu-options">
-                        <h3>Меню из подборки</h3>
+                        <h3>Добавить в меню</h3>
+                        <div className="row">
+                          <Field label="Период с">
+                            <input
+                              type="date"
+                              value={mealDay}
+                              onChange={(e) => {
+                                const from = e.target.value,
+                                  to = menuTo < from ? from : menuTo;
+                                setMealDay(from);
+                                setMenuTo(to);
+                                mutate((d) => (d.menuPeriod = { from, to }));
+                              }}
+                            />
+                          </Field>
+                          <Field label="по">
+                            <input
+                              type="date"
+                              min={mealDay}
+                              value={menuTo}
+                              onChange={(e) => {
+                                setMenuTo(e.target.value);
+                                mutate(
+                                  (d) =>
+                                    (d.menuPeriod = {
+                                      from: mealDay,
+                                      to: e.target.value,
+                                    }),
+                                );
+                              }}
+                            />
+                          </Field>
+                        </div>
                         <p>
-                          {parsedRecipes.length} рецептов · {importedPlacements}{" "}
-                          подач · {importedDates.length} дат
+                          {parsedRecipes.length} рецептов · общий период{" "}
+                          {menuDateLabel(mealDay)} —{" "}
+                          {menuDateLabel(menuTo < mealDay ? mealDay : menuTo)}
                         </p>
-                        {importedDates.length > 0 ? (
-                          <>
-                            <p className="footnote">
-                              {importedDates.map(dateLabel).join(" · ")}
-                            </p>
-                            <label className="inline-check">
-                              <input
-                                type="checkbox"
-                                checked={addImportedMenu}
-                                onChange={(e) => {
-                                  setAddImportedMenu(e.target.checked);
-                                  setDraft((d: any) => ({
-                                    ...d,
-                                    importReviewed: false,
-                                  }));
-                                }}
-                              />{" "}
-                              Добавить блюда в меню по указанным датам
-                            </label>
-                            <label className="inline-check">
-                              <input
-                                type="checkbox"
-                                disabled={!addImportedMenu}
-                                checked={replaceImportedDates}
-                                onChange={(e) => {
-                                  setReplaceImportedDates(e.target.checked);
-                                  setDraft((d: any) => ({
-                                    ...d,
-                                    importReviewed: false,
-                                  }));
-                                }}
-                              />{" "}
-                              Заменить существующее меню на эти даты
-                            </label>
-                            {replaceImportedDates && addImportedMenu && (
-                              <p className="import-warning">
-                                Прежние позиции только на перечисленные даты
-                                уйдут в корзину. Рецепты, любимые блюда и другие
-                                даты не удаляются.
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="footnote">
-                            Дат нет — сохраним только рецепты. Чтобы
-                            распределить меню, добавь строки «В меню».
+                        <label className="inline-check">
+                          <input
+                            type="checkbox"
+                            checked={addImportedMenu}
+                            onChange={(e) => {
+                              setAddImportedMenu(e.target.checked);
+                              if (!e.target.checked)
+                                setReplaceImportedMenu(false);
+                              setDraft((d: any) => ({
+                                ...d,
+                                importReviewed: false,
+                              }));
+                            }}
+                          />{" "}
+                          Добавить эти блюда в меню
+                        </label>
+                        <label className="inline-check">
+                          <input
+                            type="checkbox"
+                            disabled={!addImportedMenu}
+                            checked={replaceImportedMenu}
+                            onChange={(e) => {
+                              setReplaceImportedMenu(e.target.checked);
+                              setDraft((d: any) => ({
+                                ...d,
+                                importReviewed: false,
+                              }));
+                            }}
+                          />{" "}
+                          Заменить всё текущее меню
+                        </label>
+                        {replaceImportedMenu && addImportedMenu && (
+                          <p className="import-warning">
+                            Все текущие позиции меню будут перемещены в корзину.
                           </p>
                         )}
                       </div>
@@ -2371,35 +2460,12 @@ export default function Polyanka() {
                   </button>
                 ))}
               </div>
-              <h3>Иконка сайта</h3>
-              <p className="muted">Значок вкладки и ярлыка сайта в браузере.</p>
-              <ArtPicker
-                slot="faviconArt"
-                value={data.settings.faviconArt || "leaf"}
-                onChange={(id) => mutate((d) => (d.settings.faviconArt = id))}
-              />
-              <h3>Иллюстрация шапки</h3>
-              <ArtPicker
-                slot="headerArt"
-                value={data.settings.headerArt || "meadow"}
-                onChange={(id) => mutate((d) => (d.settings.headerArt = id))}
-              />
-              <h3>Иллюстрация меню</h3>
-              <ArtPicker
-                slot="menuArt"
-                value={data.settings.menuArt || "flowers"}
-                onChange={(id) => mutate((d) => (d.settings.menuArt = id))}
-              />
-              <h3>Иллюстрация списка продуктов</h3>
-              <ArtPicker
-                slot="shoppingArt"
-                value={data.settings.shoppingArt || "fern"}
-                onChange={(id) => mutate((d) => (d.settings.shoppingArt = id))}
-              />
-              <p className="footnote">
-                Можно выбрать только одну из подготовленных иллюстраций для
-                каждого места. Загрузка собственных картинок недоступна.
-              </p>
+              <div className="curated-art-note">
+                <Leaf size={18} />
+                <span>
+                  Иллюстрации и значок сайта оставлены в прежнем оформлении.
+                </span>
+              </div>
               <h3>Блюда в кухоньке</h3>
               <div className="segmented">
                 <button
@@ -2735,7 +2801,6 @@ export default function Polyanka() {
             (
               {
                 shelfHelp: "Своя полка — как всё устроено",
-                recipePrompt: "Промпт для помощника по меню",
                 help: "Листик-подсказка",
                 dish: "Твой рецепт",
                 dishView: "Из твоей кухоньки",
@@ -2752,21 +2817,6 @@ export default function Polyanka() {
           onClose={() => setModal(null)}
         >
           {modal.type === "shelfHelp" && <ShelfInformation />}
-          {modal.type === "recipePrompt" && (
-            <div className="help-content">
-              <p>
-                Текст для внешнего ИИ: кнопка показывает промпт, но сайт сам не
-                генерирует рецепты.
-              </p>
-              <textarea
-                className="prompt-display"
-                aria-label="Текст промпта меню"
-                value={RECIPE_PROMPT}
-                readOnly
-                rows={20}
-              />
-            </div>
-          )}
           {modal.type === "help" && (
             <div className="help-content">
               <Leaf size={36} />
@@ -2941,20 +2991,12 @@ export default function Polyanka() {
               className="editor-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                saveItem("menu", {
+                saveMenuItem({
                   ...draft,
                   portions: Number(draft.portions),
                 });
               }}
             >
-              <Field label="День">
-                <input
-                  type="date"
-                  required
-                  value={draft.date}
-                  onChange={(e) => setDraft({ ...draft, date: e.target.value })}
-                />
-              </Field>
               <Field label="Блюдо">
                 <select
                   required

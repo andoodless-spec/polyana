@@ -19,13 +19,10 @@ const nav = async () =>
 await nav();
 const dish = p.locator(".restaurant-dish").first();
 await expect(dish).toBeVisible();
-await expect(dish.locator(".recipe-flip-trigger").first()).toHaveText(
-  "Как приготовить",
-);
-await dish.getByRole("button", { name: "Как приготовить" }).click();
+await dish.locator(".restaurant-dish-name").first().click();
 await expect(dish).toHaveClass(/recipe-flipped/);
 await expect(dish.locator(".restaurant-dish-back")).toContainText("Нарезать");
-await dish.getByRole("button", { name: "Вернуться к блюду" }).click();
+await dish.locator(".recipe-back-text").click();
 await expect(dish).not.toHaveClass(/recipe-flipped/);
 await expect(p.locator(".menu-illustration svg")).toBeVisible();
 await expect(p.locator(".menu-art-controls input[type=file]")).toHaveCount(0);
@@ -33,58 +30,18 @@ const beforeIcon = await p
   .locator('link[data-polyanka-favicon="true"]')
   .getAttribute("href");
 await p.getByRole("button", { name: "Настройки", exact: true }).click();
-await expect(p.locator(".art-picker-faviconArt button")).toHaveCount(4);
-await expect(p.locator(".art-picker-headerArt button")).toHaveCount(4);
-await expect(p.locator(".art-picker-menuArt button")).toHaveCount(4);
-await expect(p.locator(".art-picker-shoppingArt button")).toHaveCount(4);
-await p.locator(".art-picker-menuArt button").nth(2).click();
-await p.locator(".art-picker-headerArt button").nth(1).click();
-await p.locator(".art-picker-shoppingArt button").nth(2).click();
-await p.locator(".art-picker-faviconArt button").nth(2).click();
-await expect(
-  p.locator('link[data-polyanka-favicon="true"]'),
-).not.toHaveAttribute("href", beforeIcon);
-await expect
-  .poll(() =>
-    p.evaluate(
-      () => JSON.parse(localStorage.getItem("polyanka-demo")).settings.menuArt,
-    ),
-  )
-  .toBe("teapot");
-await expect
-  .poll(() =>
-    p.evaluate(
-      () =>
-        JSON.parse(localStorage.getItem("polyanka-demo")).settings.headerArt,
-    ),
-  )
-  .toBe("garden");
-await expect
-  .poll(() =>
-    p.evaluate(
-      () =>
-        JSON.parse(localStorage.getItem("polyanka-demo")).settings.shoppingArt,
-    ),
-  )
-  .toBe("apple");
-await expect
-  .poll(() =>
-    p.evaluate(
-      () =>
-        JSON.parse(localStorage.getItem("polyanka-demo")).settings.faviconArt,
-    ),
-  )
-  .toBe("mushroom");
+await expect(p.locator(".art-picker")).toHaveCount(0);
 await p.getByRole("button", { name: "Закрыть", exact: true }).click();
 await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
 await expect(p.locator(".sub-tabs button").first()).toHaveText(
   "Разобрать текст",
 );
-await p.getByRole("button", { name: "Промпт для ИИ" }).click();
-await expect(p.getByLabel("Текст промпта меню")).toHaveValue(
-  /ПЯТЬ ОБЯЗАТЕЛЬНЫХ ВОПРОСОВ/,
-);
-await p.keyboard.press("Escape");
+await p.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+await p.getByRole("button", { name: "Скопировать промт для ИИ" }).click();
+await expect(p.locator(".toast")).toContainText("Промт скопирован");
+await expect
+  .poll(() => p.evaluate(() => navigator.clipboard.readText()))
+  .toContain("Период меню:");
 await p.getByRole("button", { name: "Коллекция", exact: true }).click();
 const collectionCard = p.locator(".recipe-collection-card").first();
 await collectionCard.getByRole("button", { name: "Крем-суп из тыквы" }).click();
@@ -96,7 +53,7 @@ await expect(collectionCard.locator(".collection-recipe-back")).toHaveAttribute(
 await expect(collectionCard.locator(".collection-recipe-back")).toContainText(
   "Нарезать овощи",
 );
-await collectionCard.getByRole("button", { name: "Вернуться к блюду" }).click();
+await collectionCard.locator(".collection-recipe-text").click();
 await expect(collectionCard).not.toHaveClass(/recipe-collection-flipped/);
 await p.getByRole("button", { name: "Разобрать текст", exact: true }).click();
 await p
@@ -114,7 +71,7 @@ await p.setViewportSize({ width: 320, height: 740 });
 if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
   throw Error("Artwork or settings overflow 320px");
 console.log(
-  "Menu and collection card flips, prompt information dialog, built-in art galleries, persistent preferences, dynamic favicon, no custom uploads, p.v. parsing and 320px layout passed. Errors:",
+  "Menu and collection text-driven flips, prompt copying, fixed built-in art, persistent preferences, fixed favicon, no custom uploads, p.v. parsing and 320px layout passed. Errors:",
   errors,
 );
 await browser.close();

@@ -15,6 +15,7 @@ export default function ShoppingSheet({
     new Date(s + "T12:00:00").toLocaleDateString("ru-RU", {
       day: "numeric",
       month: "long",
+      year: "numeric",
     });
   return (
     <section className="restaurant-menu shopping-sheet">

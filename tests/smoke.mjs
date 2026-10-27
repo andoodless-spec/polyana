@@ -80,7 +80,7 @@ await p.screenshot({
   fullPage: true,
 });
 const dl = p.waitForEvent("download");
-await p.getByRole("button", { name: "В PNG", exact: true }).click();
+await p.getByRole("button", { name: "Сохранить меню в галерею" }).click();
 const png = await dl;
 await png.saveAs("test-artifacts/menu-export.png");
 await p.getByRole("button", { name: "Мои блюда", exact: true }).click();
@@ -139,7 +139,7 @@ await p.screenshot({
   fullPage: true,
 });
 console.log(
-  "Smoke: inline edits, locked privacy, search, purchases, PNG, night palettes passed. Errors:",
+  "Smoke: inline edits, locked privacy, search, purchases, gallery image export, night palettes passed. Errors:",
   errors,
 );
 await b.close();
