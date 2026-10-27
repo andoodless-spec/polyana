@@ -61,11 +61,11 @@ export async function POST(req: Request) {
     if (
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       email.length > 254 ||
-      password.length < 10 ||
+      password.length < 8 ||
       password.length > 200
     )
       return Response.json(
-        { error: "Укажи email и пароль от 10 до 200 символов." },
+        { error: "Укажи email и пароль от 8 до 200 символов." },
         { status: 400 },
       );
     const key = digest(

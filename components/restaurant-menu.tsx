@@ -120,14 +120,7 @@ export default function RestaurantMenu({
                         </div>
                         {d && (
                           <ul className="restaurant-ingredients ingredient-column">
-                            {(d.ingredients || [])
-                              .filter(
-                                (i: any) =>
-                                  !/^(вода|питьевая вода|водопроводная вода)$/i.test(
-                                    i.name.trim(),
-                                  ),
-                              )
-                              .map((ing: any, n: number) => (
+                            {(d.ingredients || []).map((ing: any, n: number) => (
                                 <li key={n}>
                                   <span>{ing.name}</span>
                                   <i aria-hidden="true" />

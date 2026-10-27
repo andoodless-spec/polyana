@@ -234,14 +234,6 @@ export function migrateMenuPlan(source: any) {
 export function normalize(s: string) {
   return s.toLowerCase().replaceAll("ё", "е").trim();
 }
-export function isWaterProduct(s: string) {
-  const name = normalize(s);
-  return (
-    name === "вода" ||
-    name.startsWith("вода ") ||
-    name.startsWith("питьевая вода")
-  );
-}
 export function ingredientMatch(name: string, query: string) {
   const n = normalize(name),
     q = normalize(query);
@@ -296,8 +288,7 @@ export function parseIngredients(text: string) {
             unit: m[3].trim(),
           }
         : { name: line.trim(), qty: "", unit: "" };
-    })
-    .filter((ingredient) => !isWaterProduct(ingredient.name));
+    });
 }
 export function parseRecipes(text: string) {
   const normalized = text.replace(/\r\n?/g, "\n");
@@ -399,7 +390,6 @@ export function shoppingFor(data: any, from: string, to: string) {
     const d = data.dishes.find((x: any) => x.id === m.dishId);
     if (!d) continue;
     for (const ing of d.ingredients) {
-      if (isWaterProduct(ing.name)) continue;
       let unit = normalize(ing.unit || "");
       let qty =
         ing.qty === ""
@@ -436,9 +426,7 @@ export function shoppingFor(data: any, from: string, to: string) {
   }
   return [
     ...map.values(),
-    ...data.shopping.filter(
-      (x: any) => !x.id.startsWith("auto:") && !isWaterProduct(x.name),
-    ),
+    ...data.shopping.filter((x: any) => !x.id.startsWith("auto:")),
   ];
 }
 export function validBackup(d: any) {

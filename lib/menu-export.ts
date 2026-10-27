@@ -9,8 +9,6 @@ const order = [
   "Выпечка",
   "Другое",
 ];
-const water = (s: string) =>
-  /^(?:вода|питьевая вода|водопроводная вода)$/i.test(s.trim());
 
 // Canvas export contains only the designed menu content; no screen controls are captured.
 export async function createMenuPng(data: any, from: string, to: string) {
@@ -67,9 +65,7 @@ export async function createMenuPng(data: any, from: string, to: string) {
     blocks.push({ type: "category", category: group.category, y });
     y += 70;
     for (const item of group.items) {
-      const ingredients = (item.dish?.ingredients || [])
-        .filter((i: any) => !water(i.name))
-        .map((i: any) => ({
+      const ingredients = (item.dish?.ingredients || []).map((i: any) => ({
           name: wrap(i.name, 720, 24),
           amount:
             i.unit === "п.в."

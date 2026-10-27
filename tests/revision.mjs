@@ -118,7 +118,7 @@ await page.screenshot({
   fullPage: true,
 });
 console.log(
-  "Revision UI: shared dates, no per-dish dates, prompt copy, text flip, edit-only actions, clean menu/shopping images, simple pantry, water exclusion and mobile 320px passed. Errors:",
+  "Revision UI: shared dates, no per-dish dates, prompt copy, text flip, edit-only actions, clean menu/shopping images, simple pantry, water retention and mobile 320px passed. Errors:",
   errors,
 );
 await browser.close();

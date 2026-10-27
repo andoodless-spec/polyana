@@ -1,5 +1,5 @@
 import { fmt } from "./data";
-import { groupProducts } from "./products";
+import { groupProducts, shoppingAmount } from "./products";
 export async function createShoppingPng(
   items: any[],
   from: string,
@@ -133,7 +133,7 @@ export async function createShoppingPng(
       }
     });
     text(
-      item.qty !== "" ? fmt(item.qty) + " " + item.unit : "",
+      shoppingAmount(item),
       1090,
       y + 32,
       '27px "Brand Pixel"',

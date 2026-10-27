@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Check, Pencil, X, Plus, ArrowRight, Cake } from "lucide-react";
 import { nextBirthday, fmt } from "@/lib/data";
-import { groupProducts } from "@/lib/products";
+import { groupProducts, shoppingAmount } from "@/lib/products";
 import { MediaJacket } from "./media-jacket";
 export function Tasks({
   compact = false,
@@ -130,11 +130,7 @@ export function Shopping({
                 <span className="grow">
                   {s.name}
                   <small>
-                    {s.unit === "п.в."
-                      ? "п.в."
-                      : s.qty !== ""
-                        ? fmt(s.qty) + " " + s.unit
-                        : ""}
+                    {shoppingAmount(s)}
                   </small>
                 </span>
                 {s.done ? (

@@ -3465,10 +3465,10 @@ export default function Polyanka() {
                   }
                 />
               </Field>
-              <Field label="Пароль — не менее 10 символов">
+              <Field label="Пароль — не менее 8 символов">
                 <input
                   type="password"
-                  minLength={10}
+                  minLength={8}
                   maxLength={200}
                   required
                   autoComplete={

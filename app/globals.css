@@ -1180,6 +1180,7 @@ small {
 }
 .dish-card-body {
   padding: 21px;
+  text-align: center;
 }
 .dish-card .eyebrow {
   font-size: 9px;
@@ -1188,7 +1189,7 @@ small {
 }
 .dish-title {
   font-size: 20px;
-  text-align: left;
+  text-align: center;
   padding: 0;
   line-height: 1.25;
   display: block;
