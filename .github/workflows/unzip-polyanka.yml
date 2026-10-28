@@ -30,4 +30,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config 
+          archive="polyanka-updated-2026-10-28.zip"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- . ":(exclude)$archive"
+          if git diff --cached --quiet; then
+            echo "No project changes to commit."
+          else
+            git commit -m "Apply updated Polyanka project"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
