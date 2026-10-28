@@ -19,33 +19,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          extracted="$(mktemp -d "$RUNNER_TEMP/polyanka-update.XXXXXX")"
           if [ -f "polyanka-update-no-delete-2026-10-28.zip" ]; then
             archive="polyanka-update-no-delete-2026-10-28.zip"
+            unzip -q "$archive" -d "$extracted"
           elif [ -f "polyanka-updated-2026-10-28.zip" ]; then
             archive="polyanka-updated-2026-10-28.zip"
-          else
-            echo "No project ZIP found in repository root."
-            exit 1
-          fi
-          echo "Using archive: $archive"
-          extracted="$(mktemp -d "$RUNNER_TEMP/polyanka-update.XXXXXX")"
-          unzip -q "$archive" -d "$extracted"
-          echo "POLYANKA_EXTRACTED=$extracted" >> "$GITHUB_ENV"
-          cp -a "$extracted"/. .
-
-      - name: Commit only files from the update ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          while IFS= read -r -d '' file; do
-            relative_path="${file#"$POLYANKA_EXTRACTED"/}"
-            git add -f -- "$relative_path"
-          done < <(find "$POLYANKA_EXTRACTED" -type f -print0)
-          if git diff --cached --quiet; then
-            echo "The files from this ZIP are already up to date. Nothing to commit."
-          else
-            git commit -m "Apply Polyanka project update"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-          fi
+            unzip -q "$archive" -d "$extracted"
+          elif [ -f "polyanka-update-no-delete-bundle.zip" ] || [ -f 
