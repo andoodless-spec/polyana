@@ -510,6 +510,7 @@ export default function Journal({
                           date: today(),
                           remind: 7,
                           ideas: "",
+                          color: "#c98189",
                         })
                       }
                     >
@@ -701,6 +702,22 @@ export default function Journal({
                     </select>
                   </label>
                 </div>
+                <div className="field birthday-balloon-color-field">
+                  <span>Цвет шарика в календаре</span>
+                  <div className="birthday-color-options">
+                    {["#c98189", "#a078bd", "#779eae", "#d3a446", "#78966d", "#d9895f"].map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        className={birthdayEdit.color === color ? "active" : ""}
+                        style={{ "--birthday-color": color } as any}
+                        aria-label={`Выбрать цвет ${color}`}
+                        aria-pressed={birthdayEdit.color === color}
+                        onClick={() => setBirthdayEdit({ ...birthdayEdit, color })}
+                      />
+                    ))}
+                  </div>
+                </div>
                 <label className="field">
                   <span>Идеи подарков и заметки</span>
                   <textarea
@@ -875,7 +892,7 @@ export default function Journal({
                     <div className="book-birthday-row" key={b.id}>
                       <button
                         className="plain grow"
-                        onClick={() => setBirthdayEdit(structuredClone(b))}
+                        onClick={() => setBirthdayEdit({ ...structuredClone(b), color: b.color || "#c98189" })}
                       >
                         <strong>{b.name}</strong>
                         <small>
@@ -896,7 +913,7 @@ export default function Journal({
                       <button
                         className="icon-btn"
                         title="Изменить дату"
-                        onClick={() => setBirthdayEdit(structuredClone(b))}
+                        onClick={() => setBirthdayEdit({ ...structuredClone(b), color: b.color || "#c98189" })}
                       >
                         <Pencil size={14} />
                       </button>

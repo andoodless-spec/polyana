@@ -18,7 +18,7 @@ export default function ShoppingSheet({
       year: "numeric",
     });
   return (
-    <section className="restaurant-menu shopping-sheet">
+    <section className={`restaurant-menu shopping-sheet ${items.length >= 10 ? "columns-many" : "columns-few"}`}>
       <div className="restaurant-frame">
         <header className="restaurant-heading">
           <CuratedArt

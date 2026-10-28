@@ -5,6 +5,7 @@ export const tabs = [
   { id: "home", name: "Мой уголок", icon: "home" },
   { id: "diary", name: "Дневник", icon: "book" },
   { id: "kitchen", name: "Кухонька", icon: "pot" },
+  { id: "calendar", name: "Календарь", icon: "calendar" },
   { id: "shelf", name: "Полка", icon: "shelf" },
 ];
 export const categories = [
@@ -18,10 +19,11 @@ export const categories = [
   "Другое",
 ];
 export const mediaTypes = ["Книги", "Фильмы", "Мультфильмы", "Сериалы", "Игры"];
-export const blocks = ["notes", "tasks", "kitchen", "progress", "birthdays"];
+export const blocks = ["notes", "tasks", "calendar", "kitchen", "progress", "birthdays"];
 export const blockNames: any = {
   notes: "Бережно сохранённое",
   tasks: "Небольшие дела",
+  calendar: "Календарь",
   kitchen: "Кухонька",
   progress: "В процессе",
   birthdays: "Скоро праздник",
@@ -40,7 +42,14 @@ export function emptyData() {
     media: [],
     ideas: [],
     trash: [],
+    calendarEntries: [],
+    calendarStickers: [],
     settings: {
+      calendarMode: "day",
+      calendarFirstShifts: {},
+      calendarWorkOverrides: {},
+      calendarHeaders: {},
+      calendarWidgetEnabled: true,
       theme: "sage",
       mode: "day",
       dishView: "text",
@@ -49,7 +58,7 @@ export function emptyData() {
       menuArt: "flowers",
       shoppingArt: "fern",
       faviconArt: "leaf",
-      nav: ["home", "diary", "kitchen", "shelf"],
+      nav: ["home", "diary", "kitchen", "calendar", "shelf"],
       blocks: [...blocks],
       hidden: [],
       lockTroubles: true,
@@ -206,6 +215,15 @@ export function demoData() {
 }
 export function migrateMenuPlan(source: any) {
   const data = structuredClone(source || emptyData());
+  const defaults = emptyData();
+  data.settings = { ...defaults.settings, ...(data.settings || {}) };
+  data.settings.nav = Array.isArray(data.settings.nav) ? data.settings.nav : [...defaults.settings.nav];
+  if (!data.settings.nav.includes("calendar")) data.settings.nav.splice(Math.min(3, data.settings.nav.length), 0, "calendar");
+  data.settings.blocks = Array.isArray(data.settings.blocks) ? data.settings.blocks : [...defaults.settings.blocks];
+  data.settings.hidden = Array.isArray(data.settings.hidden) ? data.settings.hidden : [];
+  if (!data.settings.blocks.includes("calendar") && !data.settings.hidden.includes("calendar")) data.settings.blocks.splice(Math.min(2, data.settings.blocks.length), 0, "calendar");
+  data.calendarEntries = Array.isArray(data.calendarEntries) ? data.calendarEntries : [];
+  data.calendarStickers = Array.isArray(data.calendarStickers) ? data.calendarStickers : [];
   const menu = Array.isArray(data.menu) ? data.menu : [];
   const dates = menu
     .map((item: any) => item.date)

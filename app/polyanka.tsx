@@ -86,12 +86,14 @@ import ShoppingSheet from "@/components/shopping-sheet";
 import { ShelfInformation } from "@/components/media-jacket";
 import { createMenuPng } from "@/lib/menu-export";
 import Journal from "@/components/journal";
+import CalendarPage from "@/components/calendar-page";
 import { SearchPanel } from "@/components/search-panel";
 import RestaurantMenu from "@/components/restaurant-menu";
 const icons: any = {
   home: Home,
   book: BookOpen,
   pot: CookingPot,
+  calendar: CalendarDays,
   shelf: Library,
 };
 const dateLabel = (s: string) =>
@@ -912,6 +914,8 @@ export default function Polyanka() {
               <ClipboardList size={18} />
             ) : id === "kitchen" ? (
               <CookingPot size={19} />
+            ) : id === "calendar" ? (
+              <CalendarDays size={18} />
             ) : id === "progress" ? (
               <BookOpen size={18} />
             ) : (
@@ -953,6 +957,8 @@ export default function Polyanka() {
                       ? "Это тот же список дел, что на закладке дневника. Галочка отмечает выполненное."
                       : id === "kitchen"
                         ? "Переключай меню и покупки. Галочкой отмечай купленное, кнопкой «Есть дома» — продукты из запасов."
+                        : id === "calendar"
+                          ? "Текущий месяц, смены, дни рождения и короткие заметки."
                         : id === "progress"
                           ? "Незаконченные книги, фильмы и игры с твоей полки. Нажми на предмет, чтобы продолжить запись."
                           : "Ближайшие дни рождения из органайзера дневника. Нажми на человека, чтобы посмотреть заметки."
@@ -987,6 +993,7 @@ export default function Polyanka() {
           </>
         )}
         {id === "tasks" && <Tasks compact {...taskProps} />}
+        {id === "calendar" && <CalendarPage data={data} mutate={mutate} tell={tell} compact onOpen={() => go("calendar")} />}
         {id === "kitchen" && (
           <>
             <div className="segmented">
@@ -1249,9 +1256,10 @@ export default function Polyanka() {
                 <button
                   className={"btn small " + (editingHome ? "primary" : "ghost")}
                   onClick={() => setEditingHome(!editingHome)}
+                  aria-label={editingHome ? "Завершить редактирование главной" : "Редактировать главную"}
+                  title={editingHome ? "Готово" : "Редактировать главную"}
                 >
-                  {editingHome ? <Check size={15} /> : <Pencil size={14} />}{" "}
-                  {editingHome ? "Готово" : "Редактировать"}
+                  {editingHome ? <><Check size={15} /> Готово</> : <Pencil size={15} />}
                 </button>
               </div>
               {editingHome && data.settings.hidden.length > 0 && (
@@ -1802,15 +1810,16 @@ export default function Polyanka() {
                       />
                       <div className="menu-edit-footer">
                         <button
-                          className={menuEditing ? "btn primary" : "btn soft"}
+                          className={menuEditing ? "btn primary" : "icon-btn"}
                           onClick={() => setMenuEditing(!menuEditing)}
+                          aria-label={menuEditing ? "Завершить редактирование меню" : "Редактировать меню"}
+                          title={menuEditing ? "Готово" : "Редактировать меню"}
                         >
                           {menuEditing ? (
-                            <Check size={16} />
+                            <><Check size={16} /> Готово</>
                           ) : (
                             <Pencil size={15} />
                           )}
-                          {menuEditing ? "Готово" : "Редактировать"}
                         </button>
                       </div>
                     </>
@@ -2159,6 +2168,7 @@ export default function Polyanka() {
               )}
             </>
           )}
+          {page === "calendar" && <CalendarPage data={data} mutate={mutate} tell={tell} onSettings={() => setSettings("appearance")} />}
           {page === "shelf" && (
             <>
               <div className="page-heading">
@@ -2457,6 +2467,22 @@ export default function Polyanka() {
                   >
                     <t.icon size={23} />
                     {t.name}
+                  </button>
+                ))}
+              </div>
+              <h3>Календарь</h3>
+              <p className="muted">Палитра календаря следует за темой сайта. Светлый или тёмный вид можно переключать независимо.</p>
+              <div className="mode-options">
+                {[
+                  { id: "day", name: "Светлый", icon: Sun },
+                  { id: "night", name: "Тёмный", icon: Moon },
+                ].map((t) => (
+                  <button
+                    className={(data.settings.calendarMode || "day") === t.id ? "active" : ""}
+                    key={t.id}
+                    onClick={() => mutate((d) => (d.settings.calendarMode = t.id))}
+                  >
+                    <t.icon size={20} /> {t.name}
                   </button>
                 ))}
               </div>
@@ -3415,10 +3441,12 @@ export default function Polyanka() {
               )}
               <div className="row wrap">
                 <button
-                  className="btn soft"
+                  className="icon-btn"
                   onClick={() => open("media", draft)}
+                  aria-label="Редактировать запись"
+                  title="Редактировать"
                 >
-                  <Pencil size={15} /> Редактировать
+                  <Pencil size={15} />
                 </button>
                 <button
                   className="icon-btn danger"

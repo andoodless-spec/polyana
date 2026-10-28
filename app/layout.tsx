@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./calendar.css";
 export const metadata: Metadata = {
   title: "полянка — место, где можно быть собой",
   description:

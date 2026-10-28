@@ -56,7 +56,7 @@ export default function RestaurantMenu({
     setFlipped((old) => ({ ...old, [id]: !old[id] }));
 
   return (
-    <section className="restaurant-menu">
+    <section className={`restaurant-menu ${items.length >= 6 ? "columns-many" : "columns-few"}`}>
       <div className="restaurant-frame">
         <header className="restaurant-heading">
           <MenuIllustration />
@@ -71,7 +71,7 @@ export default function RestaurantMenu({
         </header>
         {!items.length ? (
           <div className="empty">
-            <p>Меню пока пустое. Добавь блюда кнопкой «Редактировать» ниже.</p>
+            <p>Меню пока пустое. Нажми на карандаш ниже, чтобы добавить блюда.</p>
           </div>
         ) : (
           sections.map(({ category, items: group }) => (
