@@ -15,15 +15,26 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Overlay updated project files
+      - name: Apply ZIP and commit updated files
         shell: bash
         run: |
-          set -euo pipefail
-          extracted="$(mktemp -d "$RUNNER_TEMP/polyanka-update.XXXXXX")"
-          if [ -f "polyanka-update-no-delete-2026-10-28.zip" ]; then
-            archive="polyanka-update-no-delete-2026-10-28.zip"
-            unzip -q "$archive" -d "$extracted"
-          elif [ -f "polyanka-updated-2026-10-28.zip" ]; then
-            archive="polyanka-updated-2026-10-28.zip"
-            unzip -q "$archive" -d "$extracted"
-          elif [ -f "polyanka-update-no-delete-bundle.zip" ] || [ -f 
+          python3 - <<'PY'
+          import io
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          import zipfile
+          from pathlib import Path
+
+          root = Path.cwd()
+          direct_names = (
+              "polyanka-update-no-delete-2026-10-28.zip",
+              "polyanka-updated-2026-10-28.zip",
+          )
+          bundle_names = (
+              "polyanka-update-no-delete-bundle.zip",
+              "polyanka-обновление-с-распаковщиком.zip",
+          )
+          direct_zip = next((root / name for name in direct_names if (root / name).is_file()), None)
+          bundle_zip = next((root / name for name in bundle_names if (root 
