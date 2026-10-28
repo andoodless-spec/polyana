@@ -1,4 +1,4 @@
-name: Apply Polyanka project ZIP
+name: Apply Polyanka update without deleting files
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-zip:
+  apply-update:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -15,28 +15,30 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Unpack updated project into repository
+      - name: Overlay updated project files
         shell: bash
         run: |
           set -euo pipefail
-          archive="polyanka-updated-2026-10-28.zip"
+          archive="polyanka-update-no-delete-2026-10-28.zip"
           test -f "$archive" || { echo "Missing $archive in repository root"; exit 1; }
-          tmp="$(mktemp -d)"
-          unzip -q "$archive" -d "$tmp"
-          cp -a "$tmp"/. .
-          rm -rf "$tmp"
+          extracted="$(mktemp -d "$RUNNER_TEMP/polyanka-update.XXXXXX")"
+          unzip -q "$archive" -d "$extracted"
+          echo "POLYANKA_EXTRACTED=$extracted" >> "$GITHUB_ENV"
+          cp -a "$extracted"/. .
 
-      - name: Commit updated project files
+      - name: Commit only files from the update ZIP
         shell: bash
         run: |
           set -euo pipefail
-          archive="polyanka-updated-2026-10-28.zip"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- . ":(exclude)$archive"
+          while IFS= read -r -d '' file; do
+            relative_path="${file#"$POLYANKA_EXTRACTED"/}"
+            git add -f -- "$relative_path"
+          done < <(find "$POLYANKA_EXTRACTED" -type f -print0)
           if git diff --cached --quiet; then
-            echo "No project changes to commit."
+            echo "The files from this ZIP are already up to date. Nothing to commit."
           else
-            git commit -m "Apply updated Polyanka project"
+            git commit -m "Apply Polyanka project update"
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
