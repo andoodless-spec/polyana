@@ -1,4 +1,4 @@
-name: Apply latest Polyanka update safely
+name: Unpack Polyanka update (simple)
 
 on:
   workflow_dispatch:
@@ -7,39 +7,33 @@ permissions:
   contents: write
 
 jobs:
-  apply-update:
+  unpack:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
-      - name: Unpack project ZIP without deleting files
+      - name: Unpack project ZIP
         shell: bash
         run: |
           set -euo pipefail
-          archive="polyanka-final-update-2026-10-28.zip"
-          if [ ! -f "$archive" ]; then
-            archive="polyanka-update-no-delete-2026-10-28.zip"
-          fi
-          if [ ! -f "$archive" ]; then
-            archive="polyanka-updated-2026-10-28.zip"
-          fi
-          if [ ! -f "$archive" ]; then
-            echo "Upload the project ZIP to the repository root first."
+          ZIP="polyanka-final-update-2026-10-28.zip"
+          if [ ! -f "$ZIP" ]; then ZIP="polyanka-update-no-delete-2026-10-28.zip"; fi
+          if [ ! -f "$ZIP" ]; then ZIP="polyanka-updated-2026-10-28.zip"; fi
+          if [ ! -f "$ZIP" ]; then
+            echo "Project ZIP was not found in the repository root."
             exit 1
           fi
-          echo "Using $archive"
-          extracted="$(mktemp -d "$RUNNER_TEMP/polyanka.XXXXXX")"
-          unzip -q "$archive" -d "$extracted"
-          cp -a "$extracted"/. .
+          echo "Unpacking: $ZIP"
+          DEST="$RUNNER_TEMP/polyanka-project"
+          mkdir -p "$DEST"
+          unzip -q "$ZIP" -d "$DEST"
+          cp -a "$DEST/." .
+
+      - name: Commit and push updated files
+        shell: bash
+        run: |
+          set -euo pipefail
           git add -A
           if git diff --cached --quiet; then
-            echo "No project changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Apply latest Polyanka project update"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "No 
