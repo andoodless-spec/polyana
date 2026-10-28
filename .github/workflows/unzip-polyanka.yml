@@ -19,8 +19,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          archive="polyanka-update-no-delete-2026-10-28.zip"
-          test -f "$archive" || { echo "Missing $archive in repository root"; exit 1; }
+          if [ -f "polyanka-update-no-delete-2026-10-28.zip" ]; then
+            archive="polyanka-update-no-delete-2026-10-28.zip"
+          elif [ -f "polyanka-updated-2026-10-28.zip" ]; then
+            archive="polyanka-updated-2026-10-28.zip"
+          else
+            echo "No project ZIP found in repository root."
+            exit 1
+          fi
+          echo "Using archive: $archive"
           extracted="$(mktemp -d "$RUNNER_TEMP/polyanka-update.XXXXXX")"
           unzip -q "$archive" -d "$extracted"
           echo "POLYANKA_EXTRACTED=$extracted" >> "$GITHUB_ENV"
