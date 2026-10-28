@@ -1,4 +1,4 @@
-name: Unpack Polyanka update (simple)
+name: Unpack latest Polyanka update
 
 on:
   workflow_dispatch:
@@ -13,27 +13,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack project ZIP
+      - name: Unpack and publish update
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="polyanka-final-update-2026-10-28.zip"
-          if [ ! -f "$ZIP" ]; then ZIP="polyanka-update-no-delete-2026-10-28.zip"; fi
-          if [ ! -f "$ZIP" ]; then ZIP="polyanka-updated-2026-10-28.zip"; fi
-          if [ ! -f "$ZIP" ]; then
-            echo "Project ZIP was not found in the repository root."
+          ZIP=polyanka-final-update-2026-10-28.zip
+          if [ ! -f $ZIP ]; then ZIP=polyanka-update-no-delete-2026-10-28.zip; fi
+          if [ ! -f $ZIP ]; then ZIP=polyanka-updated-2026-10-28.zip; fi
+          if [ ! -f $ZIP ]; then
+            echo PROJECT_ZIP_NOT_FOUND_IN_REPOSITORY_ROOT
             exit 1
           fi
-          echo "Unpacking: $ZIP"
-          DEST="$RUNNER_TEMP/polyanka-project"
-          mkdir -p "$DEST"
-          unzip -q "$ZIP" -d "$DEST"
-          cp -a "$DEST/." .
-
-      - name: Commit and push updated files
-        shell: bash
-        run: |
-          set -euo pipefail
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No 
+          echo USING_ARCHIVE_$ZIP
+          DEST=$RUNNER_TEMP/polyanka-project
+          mkdir -p $DEST
+          unzip 
