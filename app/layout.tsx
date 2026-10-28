@@ -5,7 +5,14 @@ export const metadata: Metadata = {
   title: "полянка — место, где можно быть собой",
   description:
     "Твой тихий уголок: мысли, маленькие дела, любимые блюда и личная полка.",
-  icons: { icon: "/icon.png", apple: "/icon.png" },
+  icons: {
+    icon: [
+      { url: "/icon-192.png?v=2", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=2", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icon-192.png?v=2",
+  },
+  manifest: "/site.webmanifest",
 };
 export const viewport: Viewport = {
   width: "device-width",

@@ -16,10 +16,10 @@ export async function createShoppingPng(items: any[], from: string, to: string) 
   const ink = get("--ink", "#354730");
   const muted = get("--muted", "#848b75");
   const accent = get("--forest-leaf", "#8fa277");
-  const twoColumns = items.length >= 12;
+  const twoColumns = items.length >= 8;
   const colCount = twoColumns ? 2 : 1;
-  const colWidth = twoColumns ? 485 : 1000;
-  const colX = twoColumns ? [90, 625] : [100];
+  const colWidth = 510;
+  const colX = twoColumns ? [75, 615] : [75];
   const fontSize = twoColumns ? 18 : 23;
   const lineHeight = twoColumns ? 25 : 31;
   const top = 410;

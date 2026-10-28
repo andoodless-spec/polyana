@@ -17,8 +17,7 @@ const daysInMonth = (y:number,m:number) => new Date(y,m+1,0).getDate();
 const mondayIndex = (d:Date) => (d.getDay()+6)%7;
 const diffDays = (a:string,b:string) => Math.round((parseIso(b).getTime()-parseIso(a).getTime())/86400000);
 
-function PixelArrow({dir}:{dir:"left"|"right"}) { const d=dir==="left"?"M14 2H10V6H6V10H2V14H6V18H10V22H14V18H22V6H14Z":"M10 2H14V6H18V10H22V14H18V18H14V22H10V18H2V6H10Z"; return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d={d}/></svg>; }
-
+function PixelArrow({dir}:{dir:"left"|"right"}) { return <svg width="28" height="28" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><g transform={dir==="right"?"translate(24 0) scale(-1 1)":undefined}><path fill="currentColor" d="M11 2h4v4h3v3h3v2h2v2h-2v2h-3v3h-3v4h-4v-4H8v-3H5v-2H2v-2H0v-2h2V9h3V6h3V2h3z"/></g></svg>; }
 function PixelShovel(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M10 1h4v3h3v3h-3v7h3v3h3v3h-4v3H8v-3H4v-3h3v-3h3V7H7V4h3z"/></svg>;}
 function PixelPicture(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 3h20v3h-2v12h2v3H2v-3h2V6H2zm5 3v3h3v3h3v-3h3V7h-3V6h-3v2H9V6zm-2 9v3h14v-3h-3v-2h-3v2h-2v-1h-3v1z"/></svg>;}
 function PixelHeart(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M4 3h5v2h2V3h5v2h3v5h2v4h-3v3h-3v3h-3v2h-2v-2H8v-3H5v-3H2v-4h2z"/></svg>;}
@@ -69,7 +68,7 @@ export default function CalendarPage({data, mutate, tell=()=>{}, compact=false, 
     try {
       const c=document.createElement("canvas"),ctx=c.getContext("2d");
       if(!ctx)throw new Error("Не удалось создать изображение");
-      c.width=900;c.height=1200;
+      c.width=1000;c.height=1000;
       const root=getComputedStyle(surfaceRef.current||document.documentElement);
       const surface=root.getPropertyValue("--calendar-surface").trim()||"#f6f5eb";
       const ink=root.getPropertyValue("--calendar-ink").trim()||"#354730";
@@ -77,13 +76,14 @@ export default function CalendarPage({data, mutate, tell=()=>{}, compact=false, 
       const accent=root.getPropertyValue("--calendar-accent").trim()||"#81936d";
       ctx.fillStyle=surface;ctx.fillRect(0,0,c.width,c.height);
       const img=await new Promise<HTMLImageElement>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("Не удалось загрузить шапку"));image.src=header;});
-      ctx.drawImage(img,30,24,840,190);
-      ctx.fillStyle=ink;ctx.textAlign="center";ctx.font='bold 43px "Brand Pixel", monospace';ctx.fillText(`${MONTHS[m]} ${y}`,450,267);
-      ctx.font='17px "Brand Pixel", monospace';WD.forEach((wd,i)=>ctx.fillText(wd,90+i*120,309));
-      const top=330,cw=112,ch=102,colStep=120,rowStep=111;
-      const roundRect=(x:number,yy:number,w:number,h:number,r:number)=>{ctx.beginPath();ctx.moveTo(x+r,yy);ctx.lineTo(x+w-r,yy);ctx.quadraticCurveTo(x+w,yy,x+w,yy+r);ctx.lineTo(x+w,yy+h-r);ctx.quadraticCurveTo(x+w,yy+h,x+w-r,yy+h);ctx.lineTo(x+r,yy+h);ctx.quadraticCurveTo(x,yy+h,x,yy+h-r);ctx.lineTo(x,yy+r);ctx.quadraticCurveTo(x,yy,x+r,yy);ctx.closePath();};
-      dates.forEach((day,i)=>{const row=Math.floor(i/7),col=i%7,x=30+col*colStep,yy=top+row*rowStep,ds=iso(day),work=isWork(ds);ctx.fillStyle=work?workColor:surface;ctx.strokeStyle=line;ctx.lineWidth=1.5;roundRect(x,yy,cw,ch,12);ctx.fill();ctx.stroke();ctx.textAlign="left";ctx.fillStyle=day.getMonth()===m?ink:"#a6aa9f";ctx.font='17px "Brand Pixel", monospace';ctx.fillText(String(day.getDate()),x+9,yy+23);const en=entryOn(ds);if(en?.shortText){ctx.font='11px "Brand Pixel", monospace';ctx.fillText(en.shortText.slice(0,18),x+8,yy+48);}const bdays=birthdayOn(ds);if(bdays.length){ctx.fillStyle=bdays[0].color||"#c98189";ctx.beginPath();ctx.arc(x+cw-17,yy+17,5,0,Math.PI*2);ctx.fill();}const st=stickerFor(ds);if(st){ctx.fillStyle=accent;ctx.fillRect(x+cw-18,yy+ch-18,8,8);}if(work){ctx.fillStyle=workColor;ctx.fillRect(x+9,yy+ch-9,cw-18,3);}});
-      ctx.fillStyle=accent;ctx.textAlign="center";ctx.font='15px "Brand Pixel", monospace';ctx.fillText("С заботой, твоя полянка",450,1150);
+      const banner={x:30,y:22,w:940,h:172};const scale=Math.max(banner.w/img.width,banner.h/img.height);const sourceW=banner.w/scale,sourceH=banner.h/scale;ctx.drawImage(img,(img.width-sourceW)/2,(img.height-sourceH)/2,sourceW,sourceH,banner.x,banner.y,banner.w,banner.h);
+      ctx.fillStyle=ink;ctx.textAlign="center";ctx.font='bold 42px "Brand Pixel", monospace';ctx.fillText(`${MONTHS[m]} ${y}`,500,252);
+      const rows=dates.length/7,areaTop=310,areaHeight=570,gap=7,cw=126,colStep=133,xStart=34;
+      const ch=Math.floor((areaHeight-(rows-1)*gap)/rows),rowStep=ch+gap,totalHeight=rows*ch+(rows-1)*gap,top=areaTop+Math.floor((areaHeight-totalHeight)/2);
+      ctx.font='17px "Brand Pixel", monospace';WD.forEach((wd,i)=>ctx.fillText(wd,xStart+i*colStep+cw/2,areaTop-10));
+      const rounded=(x:number,yy:number,w:number,h:number,r:number)=>{ctx.beginPath();ctx.moveTo(x+r,yy);ctx.lineTo(x+w-r,yy);ctx.quadraticCurveTo(x+w,yy,x+w,yy+r);ctx.lineTo(x+w,yy+h-r);ctx.quadraticCurveTo(x+w,yy+h,x+w-r,yy+h);ctx.lineTo(x+r,yy+h);ctx.quadraticCurveTo(x,yy+h,x,yy+h-r);ctx.lineTo(x,yy+r);ctx.quadraticCurveTo(x,yy,x+r,yy);ctx.closePath();};
+      dates.forEach((day,i)=>{const row=Math.floor(i/7),col=i%7,x=xStart+col*colStep,yy=top+row*rowStep,ds=iso(day),work=isWork(ds);ctx.fillStyle=work?workColor:surface;ctx.strokeStyle=line;ctx.lineWidth=1.5;rounded(x,yy,cw,ch,11);ctx.fill();ctx.stroke();ctx.textAlign="left";ctx.fillStyle=day.getMonth()===m?ink:"#a6aa9f";ctx.font='17px "Brand Pixel", monospace';ctx.fillText(String(day.getDate()),x+9,yy+22);const en=entryOn(ds);if(en?.shortText){ctx.font='10px "Brand Pixel", monospace';ctx.fillText(en.shortText.slice(0,18),x+8,yy+43,cw-16);}const bdays=birthdayOn(ds);if(bdays.length){ctx.fillStyle=bdays[0].color||"#c98189";ctx.beginPath();ctx.arc(x+cw-15,yy+15,5,0,Math.PI*2);ctx.fill();}const st=stickerFor(ds);if(st){ctx.fillStyle=accent;ctx.fillRect(x+cw-19,yy+ch-17,8,8);}if(work){ctx.fillStyle=workColor;ctx.fillRect(x+8,yy+ch-8,cw-16,3);}});
+      ctx.fillStyle=accent;ctx.textAlign="center";ctx.font='14px "Brand Pixel", monospace';ctx.fillText("С заботой, твоя полянка",500,970);
       const blob=await new Promise<Blob>((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error("Не удалось подготовить PNG")),"image/png"));
       const nextUrl=URL.createObjectURL(blob);setExportUrl(old=>{if(old)URL.revokeObjectURL(old);return nextUrl;});setExportName(`calendar-${y}-${pad(m+1)}.png`);
     } catch(error){tell(error instanceof Error?error.message:"Не удалось сохранить календарь");}
