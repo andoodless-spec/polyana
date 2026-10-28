@@ -58,7 +58,7 @@ export function emptyData() {
       menuArt: "flowers",
       shoppingArt: "fern",
       faviconArt: "leaf",
-      nav: ["home", "diary", "kitchen", "calendar", "shelf"],
+      nav: ["home", "diary", "kitchen", "shelf", "calendar"],
       blocks: [...blocks],
       hidden: [],
       lockTroubles: true,
@@ -218,7 +218,9 @@ export function migrateMenuPlan(source: any) {
   const defaults = emptyData();
   data.settings = { ...defaults.settings, ...(data.settings || {}) };
   data.settings.nav = Array.isArray(data.settings.nav) ? data.settings.nav : [...defaults.settings.nav];
-  if (!data.settings.nav.includes("calendar")) data.settings.nav.splice(Math.min(3, data.settings.nav.length), 0, "calendar");
+  data.settings.nav = data.settings.nav.filter((id: string) => id !== "calendar");
+  const shelfIndex = data.settings.nav.indexOf("shelf");
+  data.settings.nav.splice(shelfIndex >= 0 ? shelfIndex + 1 : data.settings.nav.length, 0, "calendar");
   data.settings.blocks = Array.isArray(data.settings.blocks) ? data.settings.blocks : [...defaults.settings.blocks];
   data.settings.hidden = Array.isArray(data.settings.hidden) ? data.settings.hidden : [];
   if (!data.settings.blocks.includes("calendar") && !data.settings.hidden.includes("calendar")) data.settings.blocks.splice(Math.min(2, data.settings.blocks.length), 0, "calendar");

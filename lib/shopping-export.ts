@@ -1,171 +1,133 @@
 import { fmt } from "./data";
 import { groupProducts } from "./products";
-export async function createShoppingPng(
-  items: any[],
-  from: string,
-  to: string,
-) {
+
+// Fixed 3:4 artwork. Larger shopping lists are balanced across two columns.
+export async function createShoppingPng(items: any[], from: string, to: string) {
   await document.fonts.ready;
-  const c = document.createElement("canvas"),
-    ctx = c.getContext("2d")!;
+  const c = document.createElement("canvas");
+  const ctx = c.getContext("2d");
+  if (!ctx) throw new Error("Не удалось подготовить список продуктов.");
   c.width = 1200;
-  const css = getComputedStyle(document.documentElement),
-    get = (k: string, f: string) => css.getPropertyValue(k).trim() || f;
-  const paper = get("--menu-paper", "#faf6e9"),
-    rule = get("--menu-rule", "#ded8bb"),
-    ink = get("--ink", "#354730"),
-    muted = get("--muted", "#848b75"),
-    accent = get("--forest-leaf", "#8fa277");
+  c.height = 1600;
+  const css = getComputedStyle(document.documentElement);
+  const get = (key: string, fallback: string) => css.getPropertyValue(key).trim() || fallback;
+  const paper = get("--menu-paper", "#faf6e9");
+  const rule = get("--menu-rule", "#ded8bb");
+  const ink = get("--ink", "#354730");
+  const muted = get("--muted", "#848b75");
+  const accent = get("--forest-leaf", "#8fa277");
+  const twoColumns = items.length >= 12;
+  const colCount = twoColumns ? 2 : 1;
+  const colWidth = twoColumns ? 485 : 1000;
+  const colX = twoColumns ? [90, 625] : [100];
+  const fontSize = twoColumns ? 18 : 23;
+  const lineHeight = twoColumns ? 25 : 31;
+  const top = 410;
+  const cursors = Array(colCount).fill(top);
+  const lastGroup: string[] = Array(colCount).fill("");
   const rows: any[] = [];
-  let y = 380;
-  function wrap(t: string, width: number) {
-    ctx.font = '28px "Brand Pixel"';
+
+  const wrap = (value: unknown, width: number) => {
+    ctx.font = `${fontSize}px "Brand Pixel", monospace`;
+    const words = String(value ?? "").split(/\s+/).filter(Boolean);
     const lines: string[] = [];
     let line = "";
-    for (const w of t.split(" ")) {
-      if (line && ctx.measureText(line + " " + w).width > width) {
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > width) {
         lines.push(line);
-        line = w;
-      } else line += (line ? " " : "") + w;
+        line = word;
+      } else line = next;
     }
     if (line) lines.push(line);
-    return lines;
-  }
-  for (const g of groupProducts(items)) {
-    rows.push({ kind: "group", name: g.name, y });
-    y += 70;
-    for (const item of g.items) {
-      const lines = wrap(item.name, 660),
-        h = Math.max(90, lines.length * 38 + 35);
-      rows.push({ kind: "item", item, lines, y, h });
-      y += h;
+    return lines.length ? lines : [""];
+  };
+
+  const groups = groupProducts(items);
+  for (const group of groups) {
+    for (const item of group.items) {
+      const column = cursors.indexOf(Math.min(...cursors));
+      const x = colX[column];
+      let y = cursors[column];
+      if (lastGroup[column] !== group.name) {
+        rows.push({ kind: "group", x, y, width: colWidth, name: group.name || "Продукты" });
+        y += 35;
+        lastGroup[column] = group.name;
+      }
+      const amountWidth = 110;
+      const lines = wrap(item.name, colWidth - amountWidth - 85);
+      const h = Math.max(58, lines.length * lineHeight + 19);
+      rows.push({ kind: "item", x, y, width: colWidth, h, item, lines });
+      cursors[column] = y + h;
     }
-    y += 25;
   }
-  c.height = Math.max(720, y + 120);
-  if (c.height > 16000) throw Error("Для PNG выбери более короткий список.");
+  const maxY = Math.max(...cursors, top + 1);
+  const scale = Math.min(1, 980 / Math.max(1, maxY - top));
+
   ctx.fillStyle = paper;
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.strokeStyle = rule;
   ctx.lineWidth = 2;
-  ctx.strokeRect(28, 28, 1144, c.height - 56);
-  ctx.strokeRect(43, 43, 1114, c.height - 86);
-  const text = (
-    t: string,
-    x: number,
-    y: number,
-    font: string,
-    color = ink,
-    align: CanvasTextAlign = "left",
-  ) => {
-    ctx.font = font;
+  ctx.strokeRect(28, 28, 1144, 1544);
+  ctx.strokeRect(43, 43, 1114, 1514);
+  const text = (value: string, x: number, y: number, size: number, color = ink, align: CanvasTextAlign = "left") => {
+    ctx.font = `${size}px "Brand Pixel", monospace`;
     ctx.fillStyle = color;
     ctx.textAlign = align;
-    ctx.fillText(t, x, y);
+    ctx.fillText(value, x, y);
   };
   ctx.fillStyle = accent;
-  ctx.fillRect(594, 72, 7, 68);
-  ctx.fillRect(572, 85, 25, 8);
-  ctx.fillRect(601, 99, 24, 8);
-  ctx.fillRect(578, 114, 21, 8);
-  text(
-    "ДЛЯ МАЛЕНЬКОЙ ДОМАШНЕЙ КУХНИ",
-    600,
-    185,
-    '20px "Brand Pixel"',
-    muted,
-    "center",
-  );
-  text("За продуктами", 600, 255, '65px "Brand Pixel"', ink, "center");
-  const label = (s: string) =>
-    new Date(s + "T12:00:00").toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  text(
-    label(from) + (to > from ? " — " + label(to) : ""),
-    600,
-    305,
-    '25px "Brand Pixel"',
-    muted,
-    "center",
-  );
-  text(
-    `${items.filter((s) => !s.done && !s.have).length} купить  ·  ${items.filter((s) => s.done).length} куплено  ·  ${items.filter((s) => s.have && !s.done).length} есть дома`,
-    600,
-    345,
-    '23px "Brand Pixel"',
-    muted,
-    "center",
-  );
-  for (const row of rows) {
-    if (row.kind === "group") {
-      text(row.name, 100, row.y + 35, '31px "Brand Pixel"', accent);
-      continue;
-    }
-    const { item, y, h, lines } = row;
-    ctx.strokeStyle = item.done ? accent : rule;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(100, y + 11, 23, 23);
-    if (item.done) {
-      ctx.beginPath();
-      ctx.moveTo(104, y + 22);
-      ctx.lineTo(111, y + 29);
-      ctx.lineTo(121, y + 15);
-      ctx.stroke();
-    }
-    lines.forEach((line: string, i: number) => {
-      text(
-        line,
-        149,
-        y + 32 + i * 38,
-        '28px "Brand Pixel"',
-        item.done ? muted : ink,
-      );
-      if (item.done) {
-        const w = ctx.measureText(line).width;
-        ctx.strokeStyle = muted;
+  ctx.fillRect(594, 69, 7, 52);
+  ctx.fillRect(572, 82, 25, 8);
+  ctx.fillRect(601, 96, 24, 8);
+  ctx.fillRect(578, 108, 21, 8);
+  text("ДЛЯ МАЛЕНЬКОЙ ДОМАШНЕЙ КУХНИ", 600, 175, 18, muted, "center");
+  text("За продуктами", 600, 250, 58, ink, "center");
+  const label = (s: string) => new Date(`${s}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  text(label(from) + (to > from ? " — " + label(to) : ""), 600, 300, 21, muted, "center");
+  text(`${items.filter((s) => !s.done && !s.have).length} купить · ${items.filter((s) => s.done).length} куплено · ${items.filter((s) => s.have && !s.done).length} есть дома`, 600, 345, 18, muted, "center");
+
+  if (!items.length) {
+    text("Здесь есть место для нужных мелочей.", 600, 500, 24, muted, "center");
+  } else {
+    ctx.save();
+    ctx.translate(0, top * (1 - scale));
+    ctx.scale(scale, scale);
+    for (const row of rows) {
+      if (row.kind === "group") {
+        text(row.name, row.x, row.y + 24, twoColumns ? 19 : 23, accent);
+        ctx.strokeStyle = rule;
         ctx.beginPath();
-        ctx.moveTo(149, y + 22 + i * 38);
-        ctx.lineTo(149 + w, y + 22 + i * 38);
+        ctx.moveTo(row.x, row.y + 32);
+        ctx.lineTo(row.x + row.width, row.y + 32);
+        ctx.stroke();
+        continue;
+      }
+      const { item, x, y, width, h, lines } = row;
+      ctx.strokeStyle = item.done ? accent : rule;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y + 7, 19, 19);
+      if (item.done) {
+        ctx.beginPath();
+        ctx.moveTo(x + 3, y + 16);
+        ctx.lineTo(x + 8, y + 21);
+        ctx.lineTo(x + 17, y + 10);
         ctx.stroke();
       }
-    });
-    text(
-      item.qty !== "" ? fmt(item.qty) + " " + item.unit : "",
-      1090,
-      y + 32,
-      '27px "Brand Pixel"',
-      ink,
-      "right",
-    );
-    if (item.have && !item.done)
-      text("есть дома", 1090, y + 62, '19px "Brand Pixel"', accent, "right");
-    ctx.strokeStyle = rule;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.moveTo(100, y + h - 12);
-    ctx.lineTo(1100, y + h - 12);
-    ctx.stroke();
-    ctx.setLineDash([]);
+      lines.forEach((line: string, i: number) => text(line, x + 30, y + 23 + i * lineHeight, fontSize, item.done ? muted : ink));
+      const amount = item.qty !== "" ? `${fmt(item.qty)} ${item.unit || ""}`.trim() : "";
+      if (amount) text(amount, x + width - 5, y + 23, fontSize, ink, "right");
+      if (item.have && !item.done) text("есть дома", x + width - 5, y + 45, twoColumns ? 13 : 16, accent, "right");
+      ctx.strokeStyle = rule;
+      ctx.setLineDash([3, 6]);
+      ctx.beginPath();
+      ctx.moveTo(x, y + h - 4);
+      ctx.lineTo(x + width, y + h - 4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
   }
-  if (!items.length)
-    text(
-      "Здесь есть место для нужных мелочей.",
-      600,
-      460,
-      '27px "Brand Pixel"',
-      muted,
-      "center",
-    );
-  text(
-    "Всё нужное — в одном листочке",
-    600,
-    c.height - 68,
-    '24px "Brand Pixel"',
-    muted,
-    "center",
-  );
+  text("Всё нужное — в одном листочке", 600, 1518, 20, muted, "center");
   return c.toDataURL("image/png");
 }

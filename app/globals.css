@@ -5779,3 +5779,34 @@ details p {
   color: var(--muted);
   padding: 10px 0;
 }
+
+/* Text recipe cards keep the agreed portrait proportions and balanced vertical spacing. */
+.dish-grid.text-view .recipe-collection-card {
+  aspect-ratio: 3 / 4;
+  min-height: 0;
+  overflow: hidden;
+}
+.dish-grid.text-view .collection-flip-inner,
+.dish-grid.text-view .collection-recipe-front,
+.dish-grid.text-view .collection-recipe-back {
+  min-height: 0;
+  height: 100%;
+}
+.dish-grid.text-view .collection-recipe-front {
+  display: flex;
+  flex-direction: column;
+}
+.dish-grid.text-view .collection-recipe-front > .dish-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+.dish-grid.text-view .collection-recipe-back {
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+@media (max-width: 480px) {
+  .dish-grid.text-view .dish-card-body { padding: 16px 12px; }
+}

@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "полянка — место, где можно быть собой",
   description:
     "Твой тихий уголок: мысли, маленькие дела, любимые блюда и личная полка.",
-  icons: { icon: "/icon.svg", apple: "/icon.png" },
+  icons: { icon: "/icon.png", apple: "/icon.png" },
 };
 export const viewport: Viewport = {
   width: "device-width",

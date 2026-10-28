@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Download, Heart, Image as ImageIcon, Pencil, X, Check, Sun, Moon } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, Share2, Pencil, X, Check, Sun } from "lucide-react";
 import { today, uid } from "@/lib/data";
 
 const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
@@ -17,8 +17,8 @@ const daysInMonth = (y:number,m:number) => new Date(y,m+1,0).getDate();
 const mondayIndex = (d:Date) => (d.getDay()+6)%7;
 const diffDays = (a:string,b:string) => Math.round((parseIso(b).getTime()-parseIso(a).getTime())/86400000);
 
-function PixelArrow({dir}:{dir:"left"|"right"}) { return <svg width="22" height="22" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d={dir==="left"?"M8 3h5v4h4v3h4v4h-4v3h-4v4H8v-4H4v-3H1v-4h3v-3h4z":"M16 3h-5v4H7v3H3v4h4v3h4v4h5v-4h4v-3h3v-4h-3v-3h-4z"}/></svg>; }
-function PixelMushroom(){return <svg width="23" height="23" viewBox="0 0 32 32" shapeRendering="crispEdges" aria-hidden="true"><path d="M4 15V11h4V7h4V4h8v3h4v4h4v4H4zM10 15h12v4h-3v8h-6v-8h-3z" fill="currentColor"/><path d="M10 11h3v3h-3zm9-3h3v3h-3zm5 5h3v2h-3z" fill="var(--calendar-surface)"/></svg>;}
+function PixelArrow({dir}:{dir:"left"|"right"}) { const d=dir==="left"?"M14 2H10V6H6V10H2V14H6V18H10V22H14V18H22V6H14Z":"M10 2H14V6H18V10H22V14H18V18H14V22H10V18H2V6H10Z"; return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d={d}/></svg>; }
+
 function PixelShovel(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M10 1h4v3h3v3h-3v7h3v3h3v3h-4v3H8v-3H4v-3h3v-3h3V7H7V4h3z"/></svg>;}
 function PixelPicture(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M2 3h20v3h-2v12h2v3H2v-3h2V6H2zm5 3v3h3v3h3v-3h3V7h-3V6h-3v2H9V6zm-2 9v3h14v-3h-3v-2h-3v2h-2v-1h-3v1z"/></svg>;}
 function PixelHeart(){return <svg width="24" height="24" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M4 3h5v2h2V3h5v2h3v5h2v4h-3v3h-3v3h-3v2h-2v-2H8v-3H5v-3H2v-4h2z"/></svg>;}
@@ -29,7 +29,8 @@ export default function CalendarPage({data, mutate, tell=()=>{}, compact=false, 
   const [monthDate,setMonthDate]=useState(()=>{const d=parseIso(today());return new Date(d.getFullYear(),d.getMonth(),1,12);});
   const [editing,setEditing]=useState(false), [tool,setTool]=useState(""), [toolPhase,setToolPhase]=useState("anchor"), [stickerTray,setStickerTray]=useState(false), [pickedSticker,setPickedSticker]=useState("");
   const [selected,setSelected]=useState(""); const [entryDraft,setEntryDraft]=useState<any>(null);
-  const fileRef=useRef<HTMLInputElement>(null);
+  const [exportUrl,setExportUrl]=useState(""); const [exportName,setExportName]=useState(""); const [exportBusy,setExportBusy]=useState(false);
+  const fileRef=useRef<HTMLInputElement>(null); const surfaceRef=useRef<HTMLElement>(null);
   const y=monthDate.getFullYear(), m=monthDate.getMonth(), key=monthKey(monthDate), first=new Date(y,m,1,12), days=daysInMonth(y,m);
   const lead=mondayIndex(first), cells=Math.ceil((lead+days)/7)*7;
   const dates=Array.from({length:cells},(_,i)=>new Date(y,m,1-lead+i,12));
@@ -62,20 +63,43 @@ export default function CalendarPage({data, mutate, tell=()=>{}, compact=false, 
     if(next==="shovel"){setToolPhase(shiftStart?"manual":"anchor");setStickerTray(false);}
     else if(next==="heart"){setStickerTray(true);}
   }
-  function loadHeader(file?:File){ if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement("canvas"),ctx=c.getContext("2d")!;c.width=1000;c.height=250;const scale=Math.max(c.width/img.width,c.height/img.height);const w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(c.width-w)/2,(c.height-h)/2,w,h);const dataUrl=c.toDataURL("image/jpeg",.78);mutate((d:any)=>{d.settings.calendarHeaders=d.settings.calendarHeaders||{};d.settings.calendarHeaders[key]=dataUrl;});tell("Шапка календаря обновлена");};img.src=URL.createObjectURL(file); }
-  function exportImage(){
-    const c=document.createElement("canvas"),ctx=c.getContext("2d")!;c.width=900;c.height=1200;
-    const root=getComputedStyle(document.querySelector(".calendar-surface")||document.documentElement);const surface=root.getPropertyValue("--calendar-surface").trim()||"#f6f5eb",ink=root.getPropertyValue("--calendar-ink").trim()||"#354730",line=root.getPropertyValue("--calendar-line").trim()||"#dce1d1";
-    ctx.fillStyle=surface;ctx.fillRect(0,0,c.width,c.height);
-    const img=new Image();img.onload=()=>{ctx.drawImage(img,30,30,840,205);ctx.fillStyle=ink;ctx.textAlign="center";ctx.font='bold 52px "Brand Pixel"';ctx.fillText(`${MONTHS[m]} ${y}`,450,290);ctx.font='20px "Brand Pixel"';WD.forEach((wd,i)=>ctx.fillText(wd,90+i*120,335));
-      const top=360,cw=116,rh=116,gap=4;dates.forEach((day,i)=>{const row=Math.floor(i/7),col=i%7,x=30+col*120,yy=top+row*120,ds=iso(day);const wd=isWork(ds);ctx.fillStyle=wd?workColor:surface;ctx.strokeStyle=line;ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(x,yy,cw,rh,14);ctx.fill();ctx.stroke();ctx.textAlign="left";ctx.fillStyle=day.getMonth()===m?ink:"#a6aa9f";ctx.font='20px "Brand Pixel"';ctx.fillText(String(day.getDate()),x+10,yy+28);const en=entryOn(ds);if(en?.shortText){ctx.font='13px "Brand Pixel"';ctx.fillText(en.shortText.slice(0,24),x+9,yy+55);}if(birthdayOn(ds).length){ctx.fillStyle=birthdayOn(ds)[0].color||"#c98189";ctx.fillRect(x+cw-22,yy+10,10,10);}});
-      const a=document.createElement("a");a.download=`calendar-${y}-${pad(m+1)}.png`;a.href=c.toDataURL("image/png");a.click();};img.onerror=()=>tell("Не удалось подготовить изображение");img.src=header;
+  function loadHeader(file?:File){ if(!file)return;const img=new Image();img.onload=()=>{const c=document.createElement("canvas"),ctx=c.getContext("2d")!;c.width=1000;c.height=250;const cut=Math.max(2,Math.round(img.height*.015)),sourceHeight=img.height-cut;const scale=Math.max(c.width/img.width,c.height/sourceHeight);const w=img.width*scale,h=sourceHeight*scale;ctx.drawImage(img,0,0,img.width,sourceHeight,(c.width-w)/2,(c.height-h)/2,w,h);const dataUrl=c.toDataURL("image/jpeg",.86);URL.revokeObjectURL(img.src);mutate((d:any)=>{d.settings.calendarHeaders=d.settings.calendarHeaders||{};d.settings.calendarHeaders[key]=dataUrl;});tell("Шапка календаря обновлена");};img.onerror=()=>tell("Не удалось загрузить изображение шапки");img.src=URL.createObjectURL(file); }
+  async function exportImage(){
+    setExportBusy(true);
+    try {
+      const c=document.createElement("canvas"),ctx=c.getContext("2d");
+      if(!ctx)throw new Error("Не удалось создать изображение");
+      c.width=900;c.height=1200;
+      const root=getComputedStyle(surfaceRef.current||document.documentElement);
+      const surface=root.getPropertyValue("--calendar-surface").trim()||"#f6f5eb";
+      const ink=root.getPropertyValue("--calendar-ink").trim()||"#354730";
+      const line=root.getPropertyValue("--calendar-line").trim()||"#dce1d1";
+      const accent=root.getPropertyValue("--calendar-accent").trim()||"#81936d";
+      ctx.fillStyle=surface;ctx.fillRect(0,0,c.width,c.height);
+      const img=await new Promise<HTMLImageElement>((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error("Не удалось загрузить шапку"));image.src=header;});
+      ctx.drawImage(img,30,24,840,190);
+      ctx.fillStyle=ink;ctx.textAlign="center";ctx.font='bold 43px "Brand Pixel", monospace';ctx.fillText(`${MONTHS[m]} ${y}`,450,267);
+      ctx.font='17px "Brand Pixel", monospace';WD.forEach((wd,i)=>ctx.fillText(wd,90+i*120,309));
+      const top=330,cw=112,ch=102,colStep=120,rowStep=111;
+      const roundRect=(x:number,yy:number,w:number,h:number,r:number)=>{ctx.beginPath();ctx.moveTo(x+r,yy);ctx.lineTo(x+w-r,yy);ctx.quadraticCurveTo(x+w,yy,x+w,yy+r);ctx.lineTo(x+w,yy+h-r);ctx.quadraticCurveTo(x+w,yy+h,x+w-r,yy+h);ctx.lineTo(x+r,yy+h);ctx.quadraticCurveTo(x,yy+h,x,yy+h-r);ctx.lineTo(x,yy+r);ctx.quadraticCurveTo(x,yy,x+r,yy);ctx.closePath();};
+      dates.forEach((day,i)=>{const row=Math.floor(i/7),col=i%7,x=30+col*colStep,yy=top+row*rowStep,ds=iso(day),work=isWork(ds);ctx.fillStyle=work?workColor:surface;ctx.strokeStyle=line;ctx.lineWidth=1.5;roundRect(x,yy,cw,ch,12);ctx.fill();ctx.stroke();ctx.textAlign="left";ctx.fillStyle=day.getMonth()===m?ink:"#a6aa9f";ctx.font='17px "Brand Pixel", monospace';ctx.fillText(String(day.getDate()),x+9,yy+23);const en=entryOn(ds);if(en?.shortText){ctx.font='11px "Brand Pixel", monospace';ctx.fillText(en.shortText.slice(0,18),x+8,yy+48);}const bdays=birthdayOn(ds);if(bdays.length){ctx.fillStyle=bdays[0].color||"#c98189";ctx.beginPath();ctx.arc(x+cw-17,yy+17,5,0,Math.PI*2);ctx.fill();}const st=stickerFor(ds);if(st){ctx.fillStyle=accent;ctx.fillRect(x+cw-18,yy+ch-18,8,8);}if(work){ctx.fillStyle=workColor;ctx.fillRect(x+9,yy+ch-9,cw-18,3);}});
+      ctx.fillStyle=accent;ctx.textAlign="center";ctx.font='15px "Brand Pixel", monospace';ctx.fillText("С заботой, твоя полянка",450,1150);
+      const blob=await new Promise<Blob>((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(new Error("Не удалось подготовить PNG")),"image/png"));
+      const nextUrl=URL.createObjectURL(blob);setExportUrl(old=>{if(old)URL.revokeObjectURL(old);return nextUrl;});setExportName(`calendar-${y}-${pad(m+1)}.png`);
+    } catch(error){tell(error instanceof Error?error.message:"Не удалось сохранить календарь");}
+    finally{setExportBusy(false);}
   }
+  async function shareExport(){
+    if(!exportUrl)return;
+    try{const blob=await (await fetch(exportUrl)).blob();const file=new File([blob],exportName,{type:"image/png"});const nav=navigator as any;if(nav.share&&nav.canShare?.({files:[file]})){await nav.share({files:[file],title:`Календарь ${MONTHS[m]} ${y}`});return;}window.open(exportUrl,"_blank","noopener,noreferrer");tell("Открылось изображение: нажми и удерживай его, чтобы сохранить.");}
+    catch{window.open(exportUrl,"_blank","noopener,noreferrer");tell("Открылось изображение: нажми и удерживай его, чтобы сохранить.");}
+  }
+  function closeExport(){if(exportUrl)URL.revokeObjectURL(exportUrl);setExportUrl("");setExportName("");}
   function updateDraft(patch:any){setEntryDraft((old:any)=>({...old,...patch}));}
   const dateLabel=(ds:string)=>parseIso(ds).toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const itemsInMenu=(data.menu||[]).map((x:any)=>({...x,dish:(data.dishes||[]).find((d:any)=>d.id===x.dishId)})).filter((x:any)=>x.dish);
   const classes=`calendar-surface ${compact?"calendar-compact":""} ${calMode==="night"?"calendar-night":""}`;
-  return <section className={classes} data-theme={data.settings.theme||"sage"}>
+  return <section ref={surfaceRef} className={classes} data-theme={data.settings.theme||"sage"}>
     {!compact&&<div className="calendar-page-heading"><div><span className="eyebrow">ПЛАНЫ, ЗАМЕТКИ И ВАЖНЫЕ ДАТЫ</span><h1>Календарь<span>.</span></h1></div><button className="icon-btn" title="Оформление календаря" aria-label="Оформление календаря" onClick={()=>onSettings?.()}><Sun size={17}/><span className="sr-only">Оформление</span></button></div>}
     <div className="calendar-main-card">
       <div className="calendar-season-header" style={{backgroundImage:`url(${header})`}} aria-label={`${MONTHS[m]} ${y}`}/>
@@ -97,22 +121,23 @@ export default function CalendarPage({data, mutate, tell=()=>{}, compact=false, 
       </div>
       {stickerTray&&editing&&<div className="calendar-sticker-tray">{STICKERS.map(([id,label])=><button key={id} className={pickedSticker===id?"selected":""} title={label} aria-label={label} onClick={()=>setPickedSticker(id)}><img src={`/calendar-stickers/${id}.png`} alt=""/></button>)}</div>}
       <div className={`calendar-toolbar ${editing?"editing":""}`}>
-        {!editing&&<><button className="calendar-tool" aria-label="Предыдущий месяц" title="Предыдущий месяц" onClick={()=>shiftMonth(-1)}><PixelArrow dir="left"/></button><span className="calendar-toolbar-sep"/><button className="calendar-tool" aria-label="Редактировать календарь" title="Редактировать" onClick={()=>setEditing(true)}><Pencil size={19}/></button><button className="calendar-tool" aria-label="Скачать календарь" title="Скачать" onClick={exportImage}><PixelMushroom/></button><span className="calendar-toolbar-sep"/><button className="calendar-tool" aria-label="Следующий месяц" title="Следующий месяц" onClick={()=>shiftMonth(1)}><PixelArrow dir="right"/></button></>}
+        {!editing&&<><button className="calendar-tool" aria-label="Предыдущий месяц" title="Предыдущий месяц" onClick={()=>shiftMonth(-1)}><PixelArrow dir="left"/></button><span className="calendar-toolbar-sep"/><button className="calendar-tool" aria-label="Редактировать календарь" title="Редактировать" onClick={()=>setEditing(true)}><Pencil size={19}/></button><button className="calendar-tool" aria-label="Скачать календарь" title="Скачать PNG" onClick={exportImage} disabled={exportBusy}><Download size={20}/></button><span className="calendar-toolbar-sep"/><button className="calendar-tool" aria-label="Следующий месяц" title="Следующий месяц" onClick={()=>shiftMonth(1)}><PixelArrow dir="right"/></button></>}
         {editing&&<><button className={`calendar-tool ${tool==="shovel"?"active":""}`} aria-label="Отметить рабочие дни" title={toolPhase==="anchor"?"Выбрать первую смену месяца":"Добавить или снять рабочие дни"} onClick={()=>toggleTool("shovel")}><PixelShovel/></button><button className="calendar-tool" aria-label="Сменить шапку календаря" title="Сменить шапку" onClick={()=>toggleTool("picture")}><PixelPicture/></button><button className={`calendar-tool ${tool==="heart"?"active":""}`} aria-label="Стикеры" title="Стикеры" onClick={()=>toggleTool("heart")}><PixelHeart/></button><button className="calendar-tool calendar-done" aria-label="Готово" title="Готово" onClick={()=>{setEditing(false);setTool("");setStickerTray(false);}}><Check size={18}/></button></>}
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={e=>{loadHeader(e.target.files?.[0]);e.currentTarget.value="";}}/>
     </div>
+    {exportUrl&&<div className="calendar-modal-backdrop" onClick={closeExport}><section className="calendar-export-dialog" role="dialog" aria-modal="true" aria-label="Сохранить календарь" onClick={e=>e.stopPropagation()}><header><h2>Календарь готов</h2><button className="icon-btn" aria-label="Закрыть" onClick={closeExport}><X size={18}/></button></header><img className="calendar-export-preview" src={exportUrl} alt={`Календарь ${MONTHS[m]} ${y}`}/><p>На iPhone нажми «Поделиться», затем «Сохранить изображение».</p><footer><a className="btn soft" href={exportUrl} download={exportName}><Download size={16}/>Скачать PNG</a><button className="btn primary" onClick={shareExport}><Share2 size={16}/>Поделиться / сохранить</button></footer></section></div>}
     {selected&&entryDraft&&<div className="calendar-modal-backdrop" onClick={()=>{setSelected("");setEntryDraft(null);}}><section className="calendar-day-modal" role="dialog" aria-modal="true" aria-label={dateLabel(selected)} onClick={e=>e.stopPropagation()}>
       <header><h2>{dateLabel(selected)}</h2><button className="icon-btn" aria-label="Закрыть" onClick={()=>{setSelected("");setEntryDraft(null);}}><X size={18}/></button></header>
       {birthdayOn(selected).map((b:any)=><div className="calendar-birthday-info" key={b.id}><Balloon color={b.color||"#c98189"}/><span><strong>День рождения · {b.name}</strong><small>Цвет шарика выбран во вкладке дней рождения</small></span></div>)}
       <label className="calendar-field"><span>Короткая запись · максимум 24 символа</span><div className="calendar-short-input"><input maxLength={24} value={entryDraft.shortText||""} onChange={e=>updateDraft({shortText:e.target.value.slice(0,24)})}/><small>{(entryDraft.shortText||"").length}/24</small></div></label>
       <label className="calendar-repeat"><input type="checkbox" checked={!!entryDraft.repeat} onChange={e=>updateDraft({repeat:e.target.checked})}/><span>Повторять ежегодно</span></label>
       <label className="calendar-field"><span>Подробности дня</span><textarea rows={3} value={entryDraft.note||""} onChange={e=>updateDraft({note:e.target.value})} placeholder="Добавить заметку…"/></label>
-      <div className="calendar-linked-title">Подключить из других вкладок</div>
+      <details className="calendar-linked-details"><summary>Подключить из других вкладок</summary>
       <div className="calendar-linked-grid">
         <fieldset><legend>Меню</legend>{itemsInMenu.length?itemsInMenu.map((x:any)=><label key={x.id}><input type="checkbox" checked={(entryDraft.menuIds||[]).includes(x.id)} onChange={e=>updateDraft({menuIds:e.target.checked?[...(entryDraft.menuIds||[]),x.id]:(entryDraft.menuIds||[]).filter((id:string)=>id!==x.id)})}/><span>{x.dish.title}</span></label>):<small>Пока нет блюд в меню</small>}</fieldset>
         <fieldset><legend>Список продуктов</legend>{(data.shopping||[]).length?(data.shopping||[]).map((x:any)=><label key={x.id}><input type="checkbox" checked={(entryDraft.shoppingIds||[]).includes(x.id)} onChange={e=>updateDraft({shoppingIds:e.target.checked?[...(entryDraft.shoppingIds||[]),x.id]:(entryDraft.shoppingIds||[]).filter((id:string)=>id!==x.id)})}/><span>{x.name}</span></label>):<small>Пока нет продуктов в списке</small>}</fieldset>
-      </div>
+      </div></details>
       <footer><button className="btn soft" onClick={()=>{setSelected("");setEntryDraft(null);}}>Отмена</button><button className="btn primary" onClick={saveEntry}><Check size={15}/>Сохранить</button></footer>
     </section></div>}
   </section>;
