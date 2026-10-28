@@ -1,22 +1,42 @@
-name: Распаковать обновлённый проект
+name: Apply Polyanka project ZIP
 
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  unzip:
+  apply-zip:
     runs-on: ubuntu-latest
     steps:
-      - name: Скачать репозиторий
+      - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Распаковать ZIP
-        run: |
-          mkdir -p polyanka-updated
-          unzip -o polyanka-updated-2026-10-28.zip -d polyanka-updated
-
-      - name: Сохранить распакованный проект
-        uses: actions/upload-artifact@v4
         with:
-          name: polyanka-updated
-          path: polyanka-updated/
+          persist-credentials: true
+
+      - name: Unpack updated project into repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="polyanka-updated-2026-10-28.zip"
+          test -f "$archive" || { echo "Missing $archive in repository root"; exit 1; }
+          tmp="$(mktemp -d)"
+          unzip -q "$archive" -d "$tmp"
+          cp -a "$tmp"/. .
+          rm -rf "$tmp"
+
+      - name: Commit updated project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git reset -- "polyanka-updated-2026-10-28.zip" 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No project changes to commit."
+          else
+            git commit -m "Apply updated Polyanka project"
+            git push
+          fi
