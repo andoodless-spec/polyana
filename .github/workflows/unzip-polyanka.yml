@@ -1,4 +1,4 @@
-name: Apply Polyanka update without deleting files
+name: Apply latest Polyanka update safely
 
 on:
   workflow_dispatch:
@@ -15,27 +15,31 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Unpack update and commit
+      - name: Unpack project ZIP without deleting files
         shell: bash
         run: |
           set -euo pipefail
-          archive="polyanka-update-no-delete-2026-10-28.zip"
+          archive="polyanka-final-update-2026-10-28.zip"
+          if [ ! -f "$archive" ]; then
+            archive="polyanka-update-no-delete-2026-10-28.zip"
+          fi
           if [ ! -f "$archive" ]; then
             archive="polyanka-updated-2026-10-28.zip"
           fi
           if [ ! -f "$archive" ]; then
-            echo "Upload the updated project ZIP to the repository root first."
+            echo "Upload the project ZIP to the repository root first."
             exit 1
           fi
+          echo "Using $archive"
           extracted="$(mktemp -d "$RUNNER_TEMP/polyanka.XXXXXX")"
           unzip -q "$archive" -d "$extracted"
           cp -a "$extracted"/. .
           git add -A
           if git diff --cached --quiet; then
-            echo "No changed project files were found."
+            echo "No project changes to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Apply Polyanka project update"
+          git commit -m "Apply latest Polyanka project update"
           git push origin "HEAD:${GITHUB_REF_NAME}"
